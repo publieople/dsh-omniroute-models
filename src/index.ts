@@ -168,6 +168,8 @@ function modelIdOf(m: { id?: string }): string | undefined {
   return typeof m?.id === 'string' && m.id.trim() !== '' ? m.id : undefined
 }
 
+const NON_CHAT_TYPES = new Set(['embedding', 'video', 'image', 'audio', 'music', 'rerank'])
+
 async function fetchCatalog(baseURL: string, apiKey: string | undefined, profile: ProviderProfile, currentProfile: ProviderProfile['models']): Promise<ModelRow[]> {
   const enabledIds = new Set((currentProfile ?? []).map((m) => m.id))
   const storedById = new Map<string, NonNullable<ProviderProfile['models']>[number]>((currentProfile ?? []).map((m) => [m.id, m]))
@@ -181,9 +183,12 @@ async function fetchCatalog(baseURL: string, apiKey: string | undefined, profile
   const seen = new Set<string>()
   const rows: ModelRow[] = []
   for (const raw of data) {
-    const m = raw as ModelRow & { context_length?: number; max_input_tokens?: number; max_output_tokens?: number; input_modalities?: unknown; capabilities?: { vision?: boolean } }
+    const m = raw as ModelRow & { type?: string; context_length?: number; max_input_tokens?: number; max_output_tokens?: number; input_modalities?: unknown; capabilities?: { vision?: boolean } }
     const id = modelIdOf(m)
     if (!id || seen.has(id)) continue
+    // Drop non-chat entries the gateway advertises (embedding / image / video / ...):
+    // they must never be whitelisted as chat models (they'd otherwise get input ['text']).
+    if (typeof m.type === 'string' && NON_CHAT_TYPES.has(m.type)) continue
     seen.add(id)
     const stored = storedById.get(id)
     const input = stored?.input && stored.input.length > 0 ? stored.input : normalizeInput(m)

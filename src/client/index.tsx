@@ -199,7 +199,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   const filtered = useMemo(() => {
     const models = catalog?.models ?? []
     const q = query.trim().toLowerCase()
-    return models.filter((m) => {
+    const out = models.filter((m) => {
       if (q && !m.id.toLowerCase().includes(q) && !(m.name ?? '').toLowerCase().includes(q)) return false
       if (modality === 'image' && !m.input.includes('image')) return false
       if (modality === 'text' && m.input.includes('image')) return false
@@ -212,6 +212,9 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
       if (enabledFilter === 'disabled' && m.enabled) return false
       return true
     })
+    // Stable browse order: vendor, then name, then id.
+    out.sort((a, b) => a.vendor.localeCompare(b.vendor) || (a.name ?? '').toLowerCase().localeCompare((b.name ?? '').toLowerCase()) || a.id.localeCompare(b.id))
+    return out
   }, [catalog, query, modality, vendorFilter, enabledFilter])
 
   const total = catalog?.models?.length ?? 0

@@ -15,6 +15,7 @@ export const name = '@dsh-external/dsh-omniroute-models'
 export const inject = ['slots']
 
 const API = '/omniroute-models/api'
+const PAGE_SIZE = 50
 
 const STYLE = `
 .om-root{color:var(--dsw-alias-label-primary);font-size:15px;line-height:1.6;font-family:var(--dsw-font-family,system-ui)}
@@ -146,6 +147,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [page, setPage] = useState(1)
 
   let loadCtrl: AbortController | null = null
   async function load(p?: string) {
@@ -214,6 +216,16 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
 
   const total = catalog?.models?.length ?? 0
   const enabledCount = catalog?.enabledCount ?? 0
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const paged = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  )
+
+  // Any filter change or a fresh catalog load lands back on page 1.
+  useEffect(() => { setPage(1) }, [query, modality, vendorFilter, enabledFilter, catalog])
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -398,7 +410,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
                 </td>
               </tr>
             )}
-            {filtered.map((m) => (
+            {paged.map((m) => (
               <tr key={m.id} className={checked.has(m.id) ? 'om-sel' : undefined}>
                 <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
                   <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={`选择 ${m.id}`} />
@@ -420,6 +432,16 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="om-pager" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+        <button className="om-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>
+          上一页
+        </button>
+        <span className="om-sub">第 {safePage} / {totalPages} 页</span>
+        <button className="om-btn" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>
+          下一页
+        </button>
       </div>
 
       <div className="om-foot">

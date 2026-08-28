@@ -33,13 +33,13 @@ const STYLE = `
 .om-btn.primary:hover{background:var(--dsw-alias-button-primary-hover)}
 .om-input:focus-visible,.om-select:focus-visible,.om-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 .om-table-wrap{overflow-x:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}
-.om-table{width:100%;border-collapse:collapse;font-size:14px}
-.om-table thead th{position:sticky;top:0;z-index:1;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600;text-align:left;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.om-table tbody td{padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary);vertical-align:top}
+.om-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px}
+.om-table thead th{position:sticky;top:0;z-index:1;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600;text-align:left;padding:10px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.om-table tbody td{padding:10px 12px;border-bottom:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary);vertical-align:top;overflow-wrap:anywhere}
 .om-table tbody tr:last-child td{border-bottom:none}
 .om-table tbody tr:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.08))}
 .om-table tbody tr.om-sel{background:var(--dsw-alias-interactive-bg-hover-accent,rgba(22,102,192,.1))}
-.om-id{word-break:break-all}
+.om-id{overflow-wrap:anywhere;word-break:break-word}
 .om-meta{color:var(--dsw-alias-label-secondary);font-size:13px;white-space:nowrap}
 .om-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:12px;font-weight:600;border-radius:999px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .om-badge.img{color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-interactive-bg-hover-accent,rgba(22,102,192,.12));border-color:var(--dsw-alias-border-l2)}
@@ -369,12 +369,12 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
         <table className="om-table">
           <thead>
             <tr>
-              <th style={{ width: 36 }}></th>
-              <th style={{ width: 110 }}>供应商</th>
+              <th style={{ width: 44 }}></th>
+              <th style={{ width: 96 }}>供应商</th>
               <th>模型</th>
-              <th style={{ width: 130 }}>模态</th>
-              <th style={{ width: 96, textAlign: 'right' }}>上下文</th>
-              <th style={{ width: 96, textAlign: 'right' }}>输出</th>
+              <th style={{ width: 108 }}>模态</th>
+              <th style={{ width: 80, textAlign: 'right' }}>上下文</th>
+              <th style={{ width: 80, textAlign: 'right' }}>输出</th>
             </tr>
           </thead>
           <tbody>
@@ -387,7 +387,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
             )}
             {filtered.map((m) => (
               <tr key={m.id} className={checked.has(m.id) ? 'om-sel' : undefined}>
-                <td style={{ verticalAlign: 'middle' }}>
+                <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
                   <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={`选择 ${m.id}`} />
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>

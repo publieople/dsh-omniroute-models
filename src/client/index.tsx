@@ -39,6 +39,8 @@ const STYLE = `
 .om-table tbody tr:last-child td{border-bottom:none}
 .om-table tbody tr:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.08))}
 .om-table tbody tr.om-sel{background:var(--dsw-alias-interactive-bg-hover-accent,rgba(22,102,192,.1))}
+.om-model-cell{overflow-wrap:anywhere}
+.om-vendor{color:var(--dsw-alias-label-secondary);font-weight:600;font-size:13px}
 .om-id{overflow-wrap:anywhere;word-break:break-word}
 .om-meta{color:var(--dsw-alias-label-secondary);font-size:13px;white-space:nowrap}
 .om-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:12px;font-weight:600;border-radius:999px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap}
@@ -370,7 +372,6 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <thead>
             <tr>
               <th style={{ width: 44 }}></th>
-              <th style={{ width: 96 }}>供应商</th>
               <th>模型</th>
               <th style={{ width: 108 }}>模态</th>
               <th style={{ width: 80, textAlign: 'right' }}>上下文</th>
@@ -380,7 +381,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={5}>
                   <div className="om-empty">无匹配模型</div>
                 </td>
               </tr>
@@ -390,11 +391,11 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
                 <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
                   <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={`选择 ${m.id}`} />
                 </td>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  {m.vendor ? <span className="om-badge">{m.vendor}</span> : <span className="om-meta">—</span>}
-                </td>
                 <td>
-                  <div className="om-id">{m.vendor ? m.id.slice(m.vendor.length + 1) : m.id}</div>
+                  <div className="om-model-cell">
+                    {m.vendor && <span className="om-vendor">{m.vendor} / </span>}
+                    <span className="om-id">{m.vendor ? m.id.slice(m.vendor.length + 1) : m.id}</span>
+                  </div>
                 </td>
                 <td>
                   <span className={'om-badge' + (m.input.includes('image') ? ' img' : '')}>

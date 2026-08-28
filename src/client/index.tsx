@@ -59,6 +59,7 @@ const STYLE = `
 
 interface CatalogModel {
   id: string
+  vendor: string
   name?: string
   contextWindow?: number
   maxTokens?: number
@@ -138,6 +139,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [modality, setModality] = useState<'all' | 'text' | 'image'>('all')
+  const [vendorFilter, setVendorFilter] = useState('all')
   const [onlyDisabled, setOnlyDisabled] = useState(false)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
@@ -170,8 +172,18 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
 
   function selectProvider(p: string) {
     setProvider(p)
+    setQuery('')
+    setModality('all')
+    setVendorFilter('all')
+    setOnlyDisabled(false)
     void load(p)
   }
+
+  const vendors = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of catalog?.models ?? []) set.add(m.vendor)
+    return [...set].sort()
+  }, [catalog])
 
   const filtered = useMemo(() => {
     const models = catalog?.models ?? []
@@ -180,10 +192,15 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
       if (q && !m.id.toLowerCase().includes(q) && !(m.name ?? '').toLowerCase().includes(q)) return false
       if (modality === 'image' && !m.input.includes('image')) return false
       if (modality === 'text' && m.input.includes('image')) return false
+      if (vendorFilter !== 'all') {
+        if (vendorFilter === '') {
+          if (m.vendor !== '') return false
+        } else if (m.vendor !== vendorFilter) return false
+      }
       if (onlyDisabled && m.enabled) return false
       return true
     })
-  }, [catalog, query, modality, onlyDisabled])
+  }, [catalog, query, modality, vendorFilter, onlyDisabled])
 
   const total = catalog?.models?.length ?? 0
   const enabledCount = catalog?.enabledCount ?? 0
@@ -303,8 +320,8 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
 
       <div className="om-toolbar">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span className="om-sub">供应商</span>
-          <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 180 }}>
+          <span className="om-sub">路由</span>
+          <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
             {(catalog.providers ?? []).map((p) => (
               <option key={p.provider} value={p.provider}>
                 {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · 不可自动发现'}
@@ -324,6 +341,14 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <option value="all">全部模态</option>
           <option value="text">仅文本</option>
           <option value="image">视觉（含图片）</option>
+        </select>
+        <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
+          <option value="all">全部供应商</option>
+          {vendors.map((v) => (
+            <option key={v || '__none__'} value={v}>
+              {v === '' ? '无命名空间' : v}
+            </option>
+          ))}
         </select>
         <label className="om-sub" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
           <input className="om-check" type="checkbox" checked={onlyDisabled} onChange={(e) => setOnlyDisabled(e.target.checked)} />
@@ -345,6 +370,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <thead>
             <tr>
               <th style={{ width: 36 }}></th>
+              <th style={{ width: 110 }}>供应商</th>
               <th>模型</th>
               <th style={{ width: 130 }}>模态</th>
               <th style={{ width: 96, textAlign: 'right' }}>上下文</th>
@@ -354,7 +380,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <div className="om-empty">无匹配模型</div>
                 </td>
               </tr>
@@ -364,8 +390,11 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
                 <td style={{ verticalAlign: 'middle' }}>
                   <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={`选择 ${m.id}`} />
                 </td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {m.vendor ? <span className="om-badge">{m.vendor}</span> : <span className="om-meta">—</span>}
+                </td>
                 <td>
-                  <div className="om-id">{m.id}</div>
+                  <div className="om-id">{m.vendor ? m.id.slice(m.vendor.length + 1) : m.id}</div>
                 </td>
                 <td>
                   <span className={'om-badge' + (m.input.includes('image') ? ' img' : '')}>

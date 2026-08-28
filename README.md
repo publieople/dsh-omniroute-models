@@ -10,7 +10,8 @@ OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRou
 
 ## 能做什么
 
-- **解析供应商目录**：自动枚举 `llm-pi-ai.providers` 下所有已配置供应商（route、displayName、api、baseURL、模型数、是否 OpenAI 兼容），UI 顶部出「供应商」下拉，切换即管理该供应商，实现**按供应商目录筛选**。
+- **按供应商筛选**：模型 id 里的命名空间前缀（`/` 前的部分，如 `opencode-go/deepseek-…` → `opencode-go`）会解析出来，UI 有「供应商」下拉 + 独立「供应商」列，可按供应商过滤/查看（`opencode`、`oc`、`auto`、`github`、无命名空间…）。
+- **按路由（DSH 供应商）切换**：自动枚举 `llm-pi-ai.providers` 下所有已配置路由（route、displayName、api、baseURL、模型数、是否 OpenAI 兼容），UI 顶部「路由」下拉切换，管理对应端点的模型。
 - 一键拉取供应商 `/v1/models`（默认 `http://localhost:20128/v1`），得到每个模型的
   `input`（text/image，自动从 `input_modalities`/`capabilities.vision` 推导）、`contextWindow`、`maxTokens`。
 - 在 DSH 设置面板新增「OmniRoute 模型管理」页：搜索框 + 模态筛选 + 全选匹配/全不选 + 逐行勾选。

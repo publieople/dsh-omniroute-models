@@ -47,11 +47,20 @@ type AppContext = Context & { webServer: WebServer }
 
 interface ModelRow {
   id: string
+  /** Vendor / namespace prefix before the first `/` in the id (`opencode-go`), or '' when the id has none. */
+  vendor: string
   name?: string
   contextWindow?: number
   maxTokens?: number
   input: string[]
   enabled: boolean
+}
+
+/** Split a model id into its vendor namespace and the rest (`opencode-go/deepseek-x` → `{ vendor: 'opencode-go', rest: 'deepseek-x' }`). */
+function splitVendor(id: string): { vendor: string; rest: string } {
+  const slash = id.indexOf('/')
+  if (slash <= 0) return { vendor: '', rest: id }
+  return { vendor: id.slice(0, slash), rest: id.slice(slash + 1) }
 }
 
 interface ProviderProfile {
@@ -172,6 +181,7 @@ async function fetchCatalog(baseURL: string, apiKey: string | undefined, profile
     const input = stored?.input && stored.input.length > 0 ? stored.input : normalizeInput(m)
     rows.push({
       id,
+      vendor: splitVendor(id).vendor,
       name: stored?.name || (typeof m.name === 'string' && m.name !== '' ? m.name : id),
       contextWindow: typeof stored?.contextWindow === 'number' ? stored.contextWindow : typeof m.context_length === 'number' ? m.context_length : typeof m.max_input_tokens === 'number' ? m.max_input_tokens : profile.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
       maxTokens: typeof stored?.maxTokens === 'number' ? stored.maxTokens : typeof m.max_output_tokens === 'number' ? m.max_output_tokens : profile.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,

@@ -24,7 +24,7 @@ OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRou
 
 - **Host**（`src/index.ts`）：注册两条同源 JSON 路由（`ctx.webServer.register`）：
   - `GET  /omniroute-models/api/catalog?provider=<route>` — 枚举 `llm-pi-ai` 供应商目录（`providers`）→ 读该路由当下模型 → 请求
-    `GET {baseURL}/models` → 返回 `{ configured, compatible, provider, displayName, api, baseURL, providers:[...], models:[{id,name,input,contextWindow,maxTokens,enabled}], enabledCount, totalCount }`；非 OpenAI 兼容路由返回 `compatible:false` 提示，不拉取。
+    `GET {baseURL}/models` → 返回 `{ configured, compatible, provider, displayName, api, baseURL, providers:[...], models:[{id,name,input,contextWindow,maxTokens,enabled}], enabledCount, totalCount }`；仅当路由协议无法按 OpenAI 形状 `/v1/models` 列举时返回 `compatible:false`；`anthropic-messages`/`openai-responses` 与 `openai-completions` 一样照常拉取（OmniRoute 网关的模型目录与所用协议无关，恒为 OpenAI 格式）。
   - `POST /omniroute-models/api/apply` — `{ provider, models:[{id,name,input,contextWindow,maxTokens}] }`，
     校验后经 `ctx.settings.mutate('llm-pi-ai', [{op:'set', path:['providers',provider,'models'], value}], expectedRevision)` 写入；
     冲突返回 `SETTINGS_CONFLICT`、schema 拒绝返回 `settings-rejected`。

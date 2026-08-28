@@ -82,12 +82,20 @@ interface ProviderInfo {
   baseURL: string
   /** Number of models already whitelisted for this provider (its `models` list length). */
   modelCount: number
-  /** Whether this provider speaks an OpenAI-compatible protocol the UI can auto-discover. */
+  /** Whether this route's endpoint exposes a listable OpenAI-shaped `/v1/models` the UI can auto-discover. */
   compatible: boolean
 }
 
-function isOpenAICompatible(api?: string): boolean {
-  return !api || api === 'openai-completions'
+/**
+ * Whether this route's endpoint can be listed through an OpenAI-shaped
+ * `GET {baseURL}/models`. OmniRoute is a protocol-translating gateway: its
+ * model catalog is protocol-agnostic and always served as OpenAI format, so
+ * even a route DSH talks to as `anthropic-messages` (or `openai-responses`)
+ * still exposes a listable `/v1/models` carrying `input_modalities`. What
+ * matters is the discovery shape, not the chat protocol the route speaks.
+ */
+function isCatalogListable(api?: string): boolean {
+  return !api || ['openai-completions', 'openai-responses', 'anthropic-messages'].includes(api)
 }
 
 const NS = settingsNamespace('llm-pi-ai')
@@ -131,7 +139,7 @@ function buildDirectory(providers: Record<string, ProviderProfile>, defaultBaseU
       api: p.api,
       baseURL: p.baseURL || defaultBaseURL,
       modelCount: (p.models ?? []).length,
-      compatible: isOpenAICompatible(p.api),
+      compatible: isCatalogListable(p.api),
     }
   })
 }
@@ -264,7 +272,7 @@ export function apply(ctx: AppContext, config: Config): void {
               })
               return
             }
-            if (!isOpenAICompatible(profile.api)) {
+            if (!isCatalogListable(profile.api)) {
               sendJson(res, 200, {
                 configured: true,
                 compatible: false,

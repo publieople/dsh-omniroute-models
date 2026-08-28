@@ -197,6 +197,45 @@ export function apply(ctx: AppContext, config: Config): void {
 
   const resolveSettings = (): SettingsProvider | undefined => ctx.get('settings') as SettingsProvider | undefined
 
+  // Diagnostic: report what DSH's LLM seam actually resolves for one provider/model
+  // (inputModalities is what the image-attachment check reads).
+  ctx.effect(() =>
+    ctx.webServer.register({
+      kind: 'exact',
+      path: `${apiRoot}/resolve`,
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        void (async () => {
+          try {
+            const llm = ctx.get('llm') as { resolveModelInfo?: (p: string, m: string, signal?: AbortSignal) => Promise<{ inputModalities?: string[]; context?: { contextWindow: number }; defaultMaxTokens?: number; reasoning?: unknown }> } | undefined
+            if (!llm?.resolveModelInfo) {
+              sendJson(res, 503, { error: 'llm 服务不可用' })
+              return
+            }
+            const url = new URL(req.url ?? '/', 'http://localhost')
+            const provider = url.searchParams.get('provider') ?? config.provider ?? 'omniroute'
+            const model = url.searchParams.get('model') ?? ''
+            if (!model) {
+              sendJson(res, 400, { error: '缺少 model 参数' })
+              return
+            }
+            const info = await llm.resolveModelInfo(provider, model, AbortSignal.timeout(8000))
+            sendJson(res, 200, {
+              provider,
+              model,
+              inputModalities: info.inputModalities,
+              contextWindow: info.context?.contextWindow,
+              defaultMaxTokens: info.defaultMaxTokens,
+              reasoning: info.reasoning,
+            })
+          } catch (e) {
+            sendJson(res, 502, { error: String((e as Error).message ?? e) })
+          }
+        })()
+      },
+    }),
+    'omniroute-models: resolve route',
+  )
+
   ctx.effect(() =>
     ctx.webServer.register({
       kind: 'exact',

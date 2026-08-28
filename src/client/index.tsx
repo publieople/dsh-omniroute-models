@@ -142,7 +142,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   const [query, setQuery] = useState('')
   const [modality, setModality] = useState<'all' | 'text' | 'image'>('all')
   const [vendorFilter, setVendorFilter] = useState('all')
-  const [onlyDisabled, setOnlyDisabled] = useState(false)
+  const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all')
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
@@ -177,7 +177,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
     setQuery('')
     setModality('all')
     setVendorFilter('all')
-    setOnlyDisabled(false)
+    setEnabledFilter('all')
     void load(p)
   }
 
@@ -199,10 +199,11 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           if (m.vendor !== '') return false
         } else if (m.vendor !== vendorFilter) return false
       }
-      if (onlyDisabled && m.enabled) return false
+      if (enabledFilter === 'enabled' && !m.enabled) return false
+      if (enabledFilter === 'disabled' && m.enabled) return false
       return true
     })
-  }, [catalog, query, modality, vendorFilter, onlyDisabled])
+  }, [catalog, query, modality, vendorFilter, enabledFilter])
 
   const total = catalog?.models?.length ?? 0
   const enabledCount = catalog?.enabledCount ?? 0
@@ -217,7 +218,10 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   }
 
   async function apply() {
-    const selected = filtered.filter((m) => checked.has(m.id))
+    // Save ALL checked models from the full catalog, never the filtered subset:
+    // a search / vendor / modality / enabled filter must only narrow the view,
+    // not silently drop items that are still checked but currently hidden.
+    const selected = (catalog?.models ?? []).filter((m) => checked.has(m.id))
     if (selected.length === 0) {
       setFlash({ kind: 'err', text: '至少勾选 1 个模型' })
       return
@@ -352,10 +356,11 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
             </option>
           ))}
         </select>
-        <label className="om-sub" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-          <input className="om-check" type="checkbox" checked={onlyDisabled} onChange={(e) => setOnlyDisabled(e.target.checked)} />
-          仅未启用
-        </label>
+        <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
+          <option value="all">全部</option>
+          <option value="enabled">已启用</option>
+          <option value="disabled">未启用</option>
+        </select>
         <button className="om-btn" onClick={() => setChecked(new Set(filtered.map((m) => m.id)))}>
           全选匹配
         </button>
@@ -417,7 +422,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
         <span className="om-sub">已选 {checked.size} · 匹配 {filtered.length} · 共 {total}</span>
         {flash && <span className={'om-status ' + flash.kind} role="status">{flash.text}</span>}
       </div>
-      <p className="om-note">保存即整体替换该路由的 models 列表（DSH 恰好能用勾选的这些）；未保存前不落盘。</p>
+      <p className="om-note">保存即整体替换该路由的 models 列表（DSH 恰好能用勾选的这些）；筛选只影响显示，不影响已勾选的保存内容；未保存前不落盘。</p>
     </div>
   )
 }

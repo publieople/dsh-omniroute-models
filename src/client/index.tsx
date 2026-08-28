@@ -1,18 +1,22 @@
 /**
  * @dsh-external/dsh-omniroute-models — client half.
  *
- * Registers a `settings.section` page ("OmniRoute 模型管理"). All styling uses
- * DSH's theme tokens (`--dsw-alias-*` / `--dsw-font-*`) so it matches the
- * panel's light/dark surfaces and stays readable at every contrast level.
+ * Registers a `settings.section` page ("OmniRoute 模型管理"), localized through
+ * the DSH locale runtime (`ctx.locale`). Copy lives in `./locales.ts`
+ * (namespace `omniroute-models`, zh/en); the section reads it via the
+ * framework-injected `t` seat. All styling uses DSH's theme tokens.
  */
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Pull the settings.section SlotMap augmentation into scope (type-only).
 import type {} from '@deepseek-ai/dsh-client-ui-settings'
+// Bring the locale runtime service (`ctx.locale`) into scope.
+import type {} from '@deepseek-ai/dsh-client-locale/client'
+import { NS, dictionaries, zh, type OmniKey, type OmniTranslate } from './locales.js'
 
 export const name = '@dsh-external/dsh-omniroute-models'
-export const inject = ['slots']
+export const inject = ['slots', 'locale']
 
 const API = '/omniroute-models/api'
 const PAGE_SIZE = 50
@@ -88,10 +92,21 @@ interface Catalog {
   baseURL?: string
   endpoint?: string
   message?: string
+  code?: string
+  params?: Record<string, string>
   providers?: ProviderInfo[]
   models?: CatalogModel[]
   enabledCount?: number
   totalCount?: number
+}
+
+/** Translate a host-driven message: prefer the localized `code`, else the raw text. */
+function hostMessage(t: OmniTranslate, code: string | undefined, params: Record<string, string> | undefined, fallback: string): string {
+  const key = ('host.' + (code ?? '')) as OmniKey
+  // Only translate codes that are known dictionary keys (apply also reports
+  // SETTINGS_CONFLICT / settings-rejected err.code, which must stay verbatim).
+  if (code && key in zh) return t(key, params)
+  return fallback
 }
 
 export function apply(ctx: ClientContext): void {
@@ -102,21 +117,29 @@ export function apply(ctx: ClientContext): void {
     return () => style.remove()
   }, 'omniroute-models: styles')
 
-  ctx.effect(
-    () =>
-      ctx.slots.inject('settings.section', () =>
-        ctx.slots.register(
-          {
-            name: 'settings.section',
-            id: 'omniroute-models',
-            order: 15,
-            label: () => 'OmniRoute 模型管理',
-          },
-          OmnirouteModelsSection,
-        ),
+  ctx.effect(() => {
+    // Register zh/en dictionaries for the omniroute-models namespace. The
+    // framework enforces bilingual balance; a disposer is returned.
+    const disposers: Array<() => void> = []
+    for (const locale of ['zh', 'en'] as const) disposers.push(ctx.locale.register(NS, locale, dictionaries[locale]))
+    return () => { for (const dispose of disposers) dispose() }
+  }, 'omniroute-models: copy dictionaries')
+
+  ctx.effect(() => {
+    const t = ctx.locale.bind(NS as string) as OmniTranslate
+    return ctx.slots.inject('settings.section', () =>
+      ctx.slots.register(
+        {
+          name: 'settings.section',
+          id: 'omniroute-models',
+          order: 15,
+          label: () => t('nav'),
+          inject: () => ({ t }),
+        },
+        OmnirouteModelsSection,
       ),
-    'omniroute-models: settings.section',
-  )
+    )
+  }, 'omniroute-models: settings.section')
 }
 
 function fmtTokens(n?: number): string {
@@ -135,7 +158,8 @@ function Spinner() {
   )
 }
 
-function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
+function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate }): ReactNode {
+  const t = props.t
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [provider, setProvider] = useState('')
   const [loading, setLoading] = useState(false)
@@ -245,7 +269,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
     // not silently drop items that are still checked but currently hidden.
     const selected = (catalog?.models ?? []).filter((m) => checked.has(m.id))
     if (selected.length === 0) {
-      setFlash({ kind: 'err', text: '至少勾选 1 个模型' })
+      setFlash({ kind: 'err', text: t('status.minOne') })
       return
     }
     setSaving(true)
@@ -265,12 +289,12 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           })),
         }),
       })
-      const body = (await res.json()) as { ok?: boolean; error?: string }
+      const body = (await res.json()) as { ok?: boolean; error?: string; code?: string; params?: Record<string, string> }
       if (!res.ok || !body.ok) {
-        setFlash({ kind: 'err', text: body.error ?? '应用失败' })
+        setFlash({ kind: 'err', text: hostMessage(t, body.code, body.params, body.error ?? t('status.applyFailed')) })
         return
       }
-      setFlash({ kind: 'ok', text: '已保存 ' + selected.length + ' 个模型' })
+      setFlash({ kind: 'ok', text: t('status.saved', { count: selected.length }) })
       await load()
     } catch (e) {
       setFlash({ kind: 'err', text: String((e as Error).message ?? e) })
@@ -288,7 +312,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <div className="bar" style={{ width: '80%' }} />
           <div className="bar" style={{ width: '60%' }} />
         </div>
-        <p className="om-note">正在拉取 OmniRoute 模型…</p>
+        <p className="om-note">{t('loading.fetching')}</p>
       </div>
     )
   }
@@ -297,10 +321,10 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
     return (
       <div className="om-root">
         <div className="om-card">
-          <h3>加载失败</h3>
+          <h3>{t('error.loadFailed')}</h3>
           <p>{error}</p>
           <button className="om-btn" onClick={() => void load()}>
-            重试
+            {t('error.retry')}
           </button>
         </div>
       </div>
@@ -311,10 +335,10 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
     return (
       <div className="om-root">
         <div className="om-card">
-          <h3>OmniRoute 模型管理</h3>
-          <p>{catalog?.message ?? '未配置 OmniRoute 提供方。'}</p>
+          <h3>{t('configured.title')}</h3>
+          <p>{hostMessage(t, catalog?.code, catalog?.params, catalog?.message ?? t('configured.notSet'))}</p>
           <button className="om-btn" onClick={() => void load()}>
-            重新检查
+            {t('configured.recheck')}
           </button>
         </div>
       </div>
@@ -326,9 +350,9 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
       <div className="om-root">
         <div className="om-card">
           <h3>{catalog.displayName || catalog.provider}</h3>
-          <p>{catalog?.message ?? '该供应商不支持自动发现。'}</p>
+          <p>{hostMessage(t, catalog?.code, catalog?.params, catalog?.message ?? t('notCompatible.msg'))}</p>
           <button className="om-btn" onClick={() => void selectProvider(provider === catalog.provider ? '' : catalog.provider)}>
-            返回
+            {t('action.back')}
           </button>
         </div>
       </div>
@@ -338,21 +362,21 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   return (
     <div className="om-root">
       <div className="om-head">
-        <h3 className="om-title">模型管理</h3>
+        <h3 className="om-title">{t('head.title')}</h3>
         <span className="om-sub">
           {catalog.displayName || catalog.provider}
           {catalog.api ? ' · ' + catalog.api : ''} · {catalog.baseURL}
         </span>
-        <span className="om-count">已启用 {enabledCount} / {total}</span>
+        <span className="om-count">{t('counts.enabled', { enabled: enabledCount, total })}</span>
       </div>
 
       <div className="om-toolbar">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span className="om-sub">路由</span>
+          <span className="om-sub">{t('toolbar.route')}</span>
           <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
             {(catalog.providers ?? []).map((p) => (
               <option key={p.provider} value={p.provider}>
-                {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · 不可自动发现'}
+                {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · ' + t('option.notDiscoverable')}
               </option>
             ))}
             {!catalog.providers?.length && <option value={provider}>{catalog.provider}</option>}
@@ -361,36 +385,36 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
         <input
           className="om-input"
           style={{ width: 240 }}
-          placeholder="搜索模型 id 或名称…"
+          placeholder={t('toolbar.search')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
-          <option value="all">全部模态</option>
-          <option value="text">仅文本</option>
-          <option value="image">视觉（含图片）</option>
+          <option value="all">{t('filter.modality.all')}</option>
+          <option value="text">{t('filter.modality.text')}</option>
+          <option value="image">{t('filter.modality.image')}</option>
         </select>
         <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
-          <option value="all">全部供应商</option>
+          <option value="all">{t('filter.vendor.all')}</option>
           {vendors.map((v) => (
             <option key={v || '__none__'} value={v}>
-              {v === '' ? '无命名空间' : v}
+              {v === '' ? t('filter.vendor.none') : v}
             </option>
           ))}
         </select>
         <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
-          <option value="all">全部</option>
-          <option value="enabled">已启用</option>
-          <option value="disabled">未启用</option>
+          <option value="all">{t('filter.enabled.all')}</option>
+          <option value="enabled">{t('filter.enabled.enabled')}</option>
+          <option value="disabled">{t('filter.enabled.disabled')}</option>
         </select>
         <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}>
-          全选匹配
+          {t('action.selectMatching')}
         </button>
         <button className="om-btn" onClick={() => setChecked(new Set())}>
-          全不选
+          {t('action.deselectAll')}
         </button>
         <button className="om-btn" onClick={() => void load(provider)}>
-          拉取
+          {t('action.refresh')}
         </button>
       </div>
 
@@ -399,24 +423,24 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <thead>
             <tr>
               <th style={{ width: 44 }}></th>
-              <th>模型</th>
-              <th style={{ width: 108 }}>模态</th>
-              <th style={{ width: 80, textAlign: 'right' }}>上下文</th>
-              <th style={{ width: 80, textAlign: 'right' }}>输出</th>
+              <th>{t('col.model')}</th>
+              <th style={{ width: 108 }}>{t('col.modality')}</th>
+              <th style={{ width: 80, textAlign: 'right' }}>{t('col.context')}</th>
+              <th style={{ width: 80, textAlign: 'right' }}>{t('col.output')}</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={5}>
-                  <div className="om-empty">无匹配模型</div>
+                  <div className="om-empty">{t('empty.noMatch')}</div>
                 </td>
               </tr>
             )}
             {paged.map((m) => (
               <tr key={m.id} className={checked.has(m.id) ? 'om-sel' : undefined}>
                 <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
-                  <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={`选择 ${m.id}`} />
+                  <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={t('aria.selectModel', { id: m.id })} />
                 </td>
                 <td>
                   <div className="om-model-cell">
@@ -426,7 +450,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
                 </td>
                 <td>
                   <span className={'om-badge' + (m.input.includes('image') ? ' img' : '')}>
-                    {m.input.includes('image') ? 'text + image' : 'text'}
+                    {m.input.includes('image') ? t('modality.textImage') : t('modality.text')}
                   </span>
                 </td>
                 <td className="om-meta" style={{ textAlign: 'right' }}>{fmtTokens(m.contextWindow)}</td>
@@ -439,22 +463,22 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
 
       <div className="om-pager" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
         <button className="om-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>
-          上一页
+          {t('action.prevPage')}
         </button>
-        <span className="om-sub">第 {safePage} / {totalPages} 页</span>
+        <span className="om-sub">{t('counts.page', { page: safePage, totalPages })}</span>
         <button className="om-btn" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>
-          下一页
+          {t('action.nextPage')}
         </button>
       </div>
 
       <div className="om-foot">
         <button className="om-btn primary" onClick={() => void apply()} disabled={saving} style={{ minWidth: 120 }}>
-          {saving ? '保存中…' : '保存所选'}
+          {saving ? t('action.saving') : t('action.save')}
         </button>
-        <span className="om-sub">已选 {checked.size} · 匹配 {filtered.length} · 共 {total}</span>
+        <span className="om-sub">{t('counts.selected', { checked: checked.size, matched: filtered.length, total })}</span>
         {flash && <span className={'om-status ' + flash.kind} role="status">{flash.text}</span>}
       </div>
-      <p className="om-note">保存即整体替换该路由的 models 列表（DSH 恰好能用勾选的这些）；筛选只影响显示，不影响已勾选的保存内容；未保存前不落盘。</p>
+      <p className="om-note">{t('note.save')}</p>
     </div>
   )
 }

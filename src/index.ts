@@ -273,6 +273,8 @@ export function apply(ctx: AppContext, config: Config): void {
                 provider: qs,
                 providers: buildDirectory(providers, config.baseURL || DEFAULT_BASE_URL),
                 baseURL,
+                code: 'catalog.notConfigured',
+                params: {},
                 message: '未发现 llm-pi-ai 提供方配置，请先在「模型」设置中添加对应路由（baseURL + apiKeyEnv）。',
               })
               return
@@ -289,6 +291,8 @@ export function apply(ctx: AppContext, config: Config): void {
                 models: [],
                 enabledCount: 0,
                 totalCount: 0,
+                code: 'catalog.notCompatible',
+                params: { api: profile.api ?? '', route },
                 message: `该供应商协议 "${profile.api}" 不是 OpenAI 兼容，无法自动拉取模型。请在 settings.yaml 手动维护 ${route} 的 models。`,
               })
               return
@@ -325,7 +329,7 @@ export function apply(ctx: AppContext, config: Config): void {
           try {
             const settings = resolveSettings()
             if (!settings) {
-              sendJson(res, 503, { error: 'settings 服务不可用（未挂载 llm-pi-ai 提供方）' })
+              sendJson(res, 503, { error: 'settings 服务不可用（未挂载 llm-pi-ai 提供方）', code: 'apply.noSettings', params: {} })
               return
             }
             const body = JSON.parse((await readBody(req)) || '{}') as {
@@ -336,18 +340,18 @@ export function apply(ctx: AppContext, config: Config): void {
             const provider = body.provider || config.provider || 'omniroute'
             const models = Array.isArray(body.models) ? body.models : []
             if (models.length === 0) {
-              sendJson(res, 400, { error: '至少需要勾选 1 个模型（空列表会让手工声明路由不可服务）' })
+              sendJson(res, 400, { error: '至少需要勾选 1 个模型（空列表会让手工声明路由不可服务）', code: 'apply.emptyModels', params: {} })
               return
             }
             const seen = new Set<string>()
             for (const m of models) {
               const id = modelIdOf(m)
               if (!id) {
-                sendJson(res, 400, { error: '存在空模型 id' })
+                sendJson(res, 400, { error: '存在空模型 id', code: 'apply.emptyId', params: {} })
                 return
               }
               if (seen.has(id)) {
-                sendJson(res, 400, { error: `重复模型 id: ${id}` })
+                sendJson(res, 400, { error: `重复模型 id: ${id}`, code: 'apply.duplicateId', params: { id } })
                 return
               }
               seen.add(id)
@@ -356,7 +360,7 @@ export function apply(ctx: AppContext, config: Config): void {
               const id = modelIdOf(m)!
               const input = clampInput(m.input)
               if (input.length === 0) {
-                sendJson(res, 400, { error: `模型 ${id} 缺少有效模态（只支持 text/image）` })
+                sendJson(res, 400, { error: `模型 ${id} 缺少有效模态（只支持 text/image）`, code: 'apply.noModality', params: { id } })
                 return null
               }
               const out: Record<string, unknown> = { id, input }

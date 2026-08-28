@@ -1,0 +1,4 @@
+- insert:
+    - id: omniroute-models
+      name: '@dsh-external/dsh-omniroute-models'
+      config: {}

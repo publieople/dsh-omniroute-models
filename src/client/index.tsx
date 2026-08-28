@@ -147,29 +147,36 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
+  let loadCtrl: AbortController | null = null
   async function load(p?: string) {
+    loadCtrl?.abort()
+    const ctrl = new AbortController()
+    loadCtrl = ctrl
     setLoading(true)
     setError(null)
     setFlash(null)
     try {
       const qs = p ? `?provider=${encodeURIComponent(p)}` : ''
-      const res = await fetch(`${API}/catalog${qs}`, { cache: 'no-store' })
+      const res = await fetch(`${API}/catalog${qs}`, { cache: 'no-store', signal: ctrl.signal })
       const data = (await res.json()) as Catalog
+      if (ctrl.signal.aborted) return
       setCatalog(data)
       setProvider(data.provider ?? '')
       const enabled = new Set<string>()
       for (const m of data.models ?? []) if (m.enabled) enabled.add(m.id)
       setChecked(enabled)
     } catch (e) {
+      if ((e as Error).name === 'AbortError' || ctrl.signal.aborted) return
       setError(String((e as Error).message ?? e))
     } finally {
-      setLoading(false)
+      if (loadCtrl === ctrl) setLoading(false)
     }
   }
 
   useEffect(() => {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { loadCtrl?.abort() }
   }, [])
 
   function selectProvider(p: string) {
@@ -361,7 +368,7 @@ function OmnirouteModelsSection(_props: { close?: () => void }): ReactNode {
           <option value="enabled">已启用</option>
           <option value="disabled">未启用</option>
         </select>
-        <button className="om-btn" onClick={() => setChecked(new Set(filtered.map((m) => m.id)))}>
+        <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}>
           全选匹配
         </button>
         <button className="om-btn" onClick={() => setChecked(new Set())}>

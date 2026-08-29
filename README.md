@@ -31,6 +31,21 @@ OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRou
   - 组件**不注册/不拥有** `llm-pi-ai` 命名空间（那是适配器 `@deepseek-ai/dsh-llm-pi-ai` 的）；只读/写既有命名空间。
 - **Client**（`src/client/index.tsx`）：订阅 `settings.section` slot（id `omniroute-models`，order 15），
   渲染 React 表格；全部数据走同源 `fetch`，不依赖 `ctx.api`/LLM 远程。
+- 只列出**可对话**模型：网关 /v1/models 会混入 `embedding`/视频/图像生成等，host 的
+  `fetchCatalog` 按 `type`（`embedding|video|image|audio|music|rerank`）过滤，避免当文本 chat 模型误列/误存。
+
+## i18n
+
+- 采用 DSH 官方 locale 机制（`@deepseek-ai/dsh-client-locale`），namespace `omniroute-models`。
+- 字典在 `src/client/locales.ts`：`zh` 为 key 集源，`en: Record<OmniKey,string>` 编译期强制补全。
+- `client` 的 `inject = ['slots','locale']`；`apply` 里 `ctx.effect(() => ctx.locale.register(NS, { zh, en }))`，
+  再 `ctx.locale.bind(NS)` 得 `t`；`settings.section` 注册带 `inject: () => ({ t })`、`label: () => t('nav')`，
+  组件从 `props.t` 取文案，语言切换（DSH 设置 → 语言）即时刷新。
+- **host 文案本地化**：catalog/apply 的确定性文案返回 `code`（如 `catalog.notConfigured`、
+  `apply.duplicateId`）+ `params`，保留中文 `message` 供 curl/开发；client 的 `hostMessage`
+  仅翻译**已知** `code`（`host.*` 键），未知回退原文，故 `SETTINGS_CONFLICT`/`settings-rejected` 等
+  异常码不会被误译。
+- 新增第三种语言：在 `locales.ts` 加对应字典并把它加进 `dictionaries`；在 `apply` 的注册循环里补该 locale。
 
 ## 构建
 

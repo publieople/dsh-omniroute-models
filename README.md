@@ -6,7 +6,7 @@ OmniRoute model manager: a DSH host+client plugin that pulls every OmniRoute mod
 **modalities**, and lets you control which OmniRoute models DSH actually serves through a
 searchable / filterable / multi-select settings page.
 
-> Pain point: OmniRoute (an OpenAI-compatible gateway) exposes a lot of models (400+ on this machine).
+> Pain point: [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (an OpenAI-compatible gateway) exposes a lot of models (400+ on this machine).
 > DSH's built-in "Models" page has no search or filter, and its discovery contract does not return
 > modalities (`DiscoveredModelView` only has id/name/contextWindow/maxTokens). This plugin maps
 > OmniRoute `/v1/models` real `input_modalities`/`context_length`/`max_output_tokens` into

@@ -5,7 +5,7 @@
 OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRoute 全部模型及其**模态**，
 并用一个可搜索/可筛选/可多选的设置页，管理 DSH 实际能用 OmniRoute 的哪些模型。
 
-> 痛点：OmniRoute（OpenAI 兼容网关）模型太多（本机 400+）；DSH 自带「模型」页添加模型
+> 痛点：[OmniRoute](https://github.com/diegosouzapw/OmniRoute)（OpenAI 兼容网关）模型太多（本机 400+）；DSH 自带「模型」页添加模型
 > 没有搜索/筛选，且 discovery 契约不返回模态（`DiscoveredModelView` 只有 id/name/contextWindow/maxTokens）。
 > 本插件把 OmniRoute `/v1/models` 的真实 `input_modalities`/`context_length`/`max_output_tokens`
 > 映射进 `llm-pi-ai.providers.<route>.models`，一次勾选即生效，无需重启。

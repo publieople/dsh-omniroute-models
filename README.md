@@ -32,6 +32,7 @@ searchable / filterable / multi-select settings page.
   modalities/capacities you hand-edited in `settings.yaml`).
 - Modality keeps only `text`/`image` (what DSH understands); `video`/`audio` etc. are clipped so the
   plugin never writes modalities DSH cannot handle (and thus fails validation).
+- **Web search**: wires DSH's built-in \`web_search\` tool to OmniRoute's aggregate \`POST /v1/search\` (Tavily/Brave/Exa/Ollama/…); enable it from the \`Web search\` card in the settings page.
 
 ## Internals
 
@@ -46,6 +47,7 @@ searchable / filterable / multi-select settings page.
     `@deepseek-ai/dsh-llm-pi-ai`'s); it only reads/writes an existing namespace.
 - **Client** (`src/client/index.tsx`): subscribes the `settings.section` slot (id `omniroute-models`, order 15),
   renders a React table; all data goes through same-origin `fetch`, no `ctx.api`/LLM remote.
+- **Web search provider** (`src/index.ts`): owns the `omniroute-models` settings namespace for search config and, when enabled, registers a `ctx.web` `WebSearchProvider` (id `omniroute`) so DSH's `web_search` uses OmniRoute; config/test routes `GET|POST /omniroute-models/api/search-config` and `POST /omniroute-models/api/search-test`.
 - **Only chat-capable models are listed**: the gateway `/v1/models` can mix in `embedding`/video/image-generation
   entries; the host's `fetchCatalog` filters by `type` (`embedding|video|image|audio|music|rerank`) so they are
   never mis-listed/mis-saved as text chat models.

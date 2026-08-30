@@ -21,6 +21,7 @@ OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRou
   经由官方 settings seam 写入 `settings.yaml`，下一请求立即生效；`apiKeyEnv/api/baseURL` 等兄弟字段保留。
 - 已启用的模型预勾选，并在重复拉取时用存储值覆盖（不覆盖你在 `settings.yaml` 手改的模态/容量）。
 - 模态只取 DSH 认识的 `text`/`image`（`video`/`audio` 等被裁剪），避免写入 DSH 无法处理的模态导致校验失败。
+- **联网搜索**：把 DSH 内置 `web_search` 接到 OmniRoute 聚合的 `POST /v1/search`（Tavily/Brave/Exa/Ollama 等）；在设置页「联网搜索」卡开启即可。
 
 ## 内部
 
@@ -33,6 +34,7 @@ OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRou
   - 组件**不注册/不拥有** `llm-pi-ai` 命名空间（那是适配器 `@deepseek-ai/dsh-llm-pi-ai` 的）；只读/写既有命名空间。
 - **Client**（`src/client/index.tsx`）：订阅 `settings.section` slot（id `omniroute-models`，order 15），
   渲染 React 表格；全部数据走同源 `fetch`，不依赖 `ctx.api`/LLM 远程。
+- **联网搜索 provider**（`src/index.ts`）：插件自有 `omniroute-models` settings 命名空间存搜索配置，开启后向 `ctx.web` 注册 `WebSearchProvider`（id `omniroute`），DSH 的 `web_search` 即走 OmniRoute；配置/测试路由 `GET|POST /api/search-config`、`POST /api/search-test`。
 - 只列出**可对话**模型：网关 /v1/models 会混入 `embedding`/视频/图像生成等，host 的
   `fetchCatalog` 按 `type`（`embedding|video|image|audio|music|rerank`）过滤，避免当文本 chat 模型误列/误存。
 

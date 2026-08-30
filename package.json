@@ -26,6 +26,7 @@
     "react": ">=18 <20"
   },
   "devDependencies": {
+    "@radix-ui/react-checkbox": "^1.3.11",
     "@types/node": "^24.13.3",
     "@types/react": "^18.3.0",
     "morphicons": "^1.7.1",

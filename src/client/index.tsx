@@ -16,6 +16,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { NS, dictionaries, zh, type OmniKey, type OmniTranslate } from './locales.js'
 import { MorphIcon, type IconNode } from 'morphicons/react'
 import { OmCombobox } from './OmCombobox.js'
+import { OmCheckbox } from './OmCheckbox.js'
 
 export const name = '@dsh-external/dsh-omniroute-models'
 export const inject = ['slots', 'locale']
@@ -93,7 +94,7 @@ const STYLE = `
 .om-combo-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 .om-combo-val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .om-combo-caret{flex:none;color:var(--dsw-alias-label-secondary,#6b7280)}
-.om-combo-panel{position:absolute;z-index:20;top:calc(100% + 4px);left:0;min-width:100%;max-height:260px;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.28);overflow:hidden}
+.om-combo-panel{position:absolute;z-index:99999;top:calc(100% + 4px);left:0;min-width:100%;max-height:260px;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.28);overflow:hidden}
 .om-combo-search{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .om-combo-search svg{flex:none;color:var(--dsw-alias-label-tertiary)}
 .om-combo-search input{flex:1;min-width:0;border:none;background:none;font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);outline:none}
@@ -105,6 +106,23 @@ const STYLE = `
 .om-combo-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .om-combo-check{margin-left:8px;flex:none}
 .om-combo-empty{color:var(--dsw-alias-label-tertiary);text-align:center;padding:14px 10px;font-size:13px}
+.om-select-trigger{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:7px 12px;font-size:14px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.om-select-trigger:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.08))}
+.om-select-trigger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.om-select-value[data-placeholder]{color:var(--dsw-alias-label-tertiary)}
+.om-select-caret{flex:none;color:var(--dsw-alias-label-secondary,#6b7280)}
+.om-select-content{min-width:var(--radix-select-trigger-width);max-height:260px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.28);overflow:hidden;z-index:99999}
+.om-select-viewport{padding:4px}
+.om-select-item{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:13px;border-radius:6px;cursor:pointer;color:var(--dsw-alias-label-primary);outline:none}
+.om-select-item[data-highlighted]{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.1))}
+.om-select-item[data-state=checked]{color:var(--dsw-alias-brand-primary,#4f6ef7);font-weight:600}
+.om-select-item-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.om-select-item-ind{margin-left:8px;flex:none}
+.om-checkbox{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary-inverted,#fff);cursor:pointer;vertical-align:middle;outline:none}
+.om-checkbox:hover{border-color:var(--dsw-alias-brand-primary,#4f6ef7)}
+.om-checkbox:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.om-checkbox[data-state=checked]{background:var(--dsw-alias-button-primary-fill);border-color:transparent}
+.om-checkbox-ind{display:inline-flex}
 `
 
 interface CatalogModel {
@@ -305,7 +323,7 @@ function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
 
       <div className="om-row">
         <label className="om-field" style={{ cursor: 'pointer' }}>
-          <input className="om-check" type="checkbox" checked={form.searchEnabled} onChange={(e) => field('searchEnabled', e.target.checked)} />
+          <OmCheckbox checked={form.searchEnabled} onCheckedChange={(v) => field('searchEnabled', v === true)} aria-label={t('search.enabled')} />
           <span>{t('search.enabled')}</span>
         </label>
       </div>
@@ -313,12 +331,14 @@ function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
       <div className="om-grid">
         <label className="om-field">
           <span className="om-sub">{t('search.provider')}</span>
-          <select className="om-select" value={form.searchProvider} onChange={(e) => field('searchProvider', e.target.value)} style={{ minWidth: 180 }}>
-            <option value="">{t('search.provider.auto')}</option>
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>{p.name || p.id}</option>
-            ))}
-          </select>
+          <OmCombobox
+            aria-label={t('search.provider')}
+            value={form.searchProvider}
+            onChange={(v) => field('searchProvider', v)}
+            placeholder={t('search.provider.auto')}
+            options={[{ value: '', label: t('search.provider.auto') }, ...providers.map((p) => ({ value: p.id, label: p.name || p.id }))]}
+            style={{ minWidth: 180 }}
+          />
         </label>
         <label className="om-field">
           <span className="om-sub">{t('search.maxResults')}</span>
@@ -565,6 +585,7 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
                 aria-label={t('toolbar.route')}
                 value={provider}
                 onChange={selectProvider}
+                placeholder={t('toolbar.route')}
                 options={(catalog.providers ?? []).map((p) => ({
                   value: p.provider,
                   label: `${p.displayName}（${p.modelCount}）${p.compatible ? '' : ' · ' + t('option.notDiscoverable')}`,
@@ -573,11 +594,16 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
               />
             </label>
             <input className="om-input om-search" placeholder={t('toolbar.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-            <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
-              <option value="all">{t('filter.modality.all')}</option>
-              <option value="text">{t('filter.modality.text')}</option>
-              <option value="image">{t('filter.modality.image')}</option>
-            </select>
+            <OmCombobox
+              aria-label={t('filter.modality.all')}
+              value={modality}
+              onChange={(v) => setModality(v as typeof modality)}
+              options={[
+                { value: 'all', label: t('filter.modality.all') },
+                { value: 'text', label: t('filter.modality.text') },
+                { value: 'image', label: t('filter.modality.image') },
+              ]}
+            />
             <OmCombobox
               aria-label={t('filter.vendor.all')}
               value={vendorFilter}
@@ -591,11 +617,16 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
               ]}
               style={{ minWidth: 150 }}
             />
-            <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
-              <option value="all">{t('filter.enabled.all')}</option>
-              <option value="enabled">{t('filter.enabled.enabled')}</option>
-              <option value="disabled">{t('filter.enabled.disabled')}</option>
-            </select>
+            <OmCombobox
+              aria-label={t('filter.enabled.all')}
+              value={enabledFilter}
+              onChange={(v) => setEnabledFilter(v as typeof enabledFilter)}
+              options={[
+                { value: 'all', label: t('filter.enabled.all') },
+                { value: 'enabled', label: t('filter.enabled.enabled') },
+                { value: 'disabled', label: t('filter.enabled.disabled') },
+              ]}
+            />
           </div>
           <div className="om-group right">
             <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}><MorphIcon icon={IconCheck} size={15} strokeWidth={2} /> {t('action.selectMatching')}</button>
@@ -626,7 +657,7 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
               {paged.map((m) => (
                 <tr key={m.id} className={checked.has(m.id) ? 'om-sel' : undefined}>
                   <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
-                    <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={t('aria.selectModel', { id: m.id })} />
+                    <OmCheckbox checked={checked.has(m.id)} onCheckedChange={() => toggle(m.id)} aria-label={t('aria.selectModel', { id: m.id })} />
                   </td>
                   <td>
                     <div className="om-model-cell">

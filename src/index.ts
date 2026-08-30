@@ -207,6 +207,10 @@ async function fetchCatalog(baseURL: string, apiKey: string | undefined, profile
   return rows
 }
 
+// ---- Model catalog cache (OmniRoute /v1/models can be slow — cache per base URL) ----
+const CATALOG_TTL_MS = 5 * 60_000
+const catalogCache = new Map<string, { at: number; models: ModelRow[] }>()
+
 // ---- Web search: plugin-owned settings section + ctx.web provider ----
 const SEARCH_NS = settingsNamespace('omniroute-models')
 
@@ -400,7 +404,15 @@ export function apply(ctx: AppContext, config: Config): void {
               })
               return
             }
-            const models = await fetchCatalog(baseURL, apiKey, profile, currentProfile)
+            const cacheKey = baseURL
+            const cached = catalogCache.get(cacheKey)
+            let models: ModelRow[]
+            if (cached && Date.now() - cached.at < CATALOG_TTL_MS) {
+              models = cached.models
+            } else {
+              models = await fetchCatalog(baseURL, apiKey, profile, currentProfile)
+              catalogCache.set(cacheKey, { at: Date.now(), models })
+            }
             sendJson(res, 200, {
               configured: true,
               compatible: true,
@@ -476,6 +488,7 @@ export function apply(ctx: AppContext, config: Config): void {
             const desc = settings.describe().find((d) => d.ns === NS)
             const expectedRevision = typeof body.expectedRevision === 'number' ? body.expectedRevision : desc?.revision
             await settings.mutate(NS, [{ op: 'set', path: readPath(provider), value: patch }], expectedRevision)
+            catalogCache.clear()
             sendJson(res, 200, { ok: true, provider, count: patch.length })
           } catch (e) {
             const err = e as Error & { code?: string }

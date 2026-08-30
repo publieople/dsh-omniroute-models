@@ -62,9 +62,14 @@ const STYLE = `
 .om-skel{border:1px solid var(--dsw-alias-border-l1);border-radius:10px;padding:20px;background:var(--dsw-alias-bg-layer-1)}
 .om-skel .bar{height:14px;border-radius:6px;background:var(--dsw-alias-bg-skeleton);margin:0 0 12px}
 .om-check{width:16px;height:16px;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}
-.om-tabs{display:flex;gap:2px;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e7eb);align-items:flex-end;margin-bottom:4px;flex-wrap:wrap}
+.om-tabs{display:flex;gap:2px;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e7eb);align-items:flex-end;margin-bottom:12px;flex-wrap:wrap}
 .om-tab{border:none;background:none;font:inherit;font-size:13px;color:var(--dsw-alias-label-secondary,#6b7280);padding:7px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 .om-tab.on{color:var(--dsw-alias-brand-primary,#4f6ef7);border-bottom-color:var(--dsw-alias-brand-primary,#4f6ef7);font-weight:600}
+.om-row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:12px}
+.om-field{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.om-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 14px;margin:2px 0 12px}
+.om-adv{display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;color:var(--dsw-alias-label-secondary,#6b7280);font:inherit;font-size:13px;cursor:pointer}
+.om-adv:hover{color:var(--dsw-alias-brand-primary,#4f6ef7)}
 `
 
 interface CatalogModel {
@@ -187,6 +192,7 @@ function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
   async function load() {
@@ -257,45 +263,54 @@ function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
   }
 
   return (
-    <div className="om-card" style={{ marginBottom: 16 }}>
-      <h3>{t('search.title')}</h3>
-      <p style={{ color: 'var(--dsw-alias-label-secondary)', margin: '0 0 12px', fontSize: 13 }}>{t('search.hint')}</p>
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer' }}>
-        <input className="om-check" type="checkbox" checked={form.searchEnabled} onChange={(e) => field('searchEnabled', e.target.checked)} />
-        <span className="om-sub">{t('search.enabled')}</span>
-      </label>
-      <div className="om-toolbar" style={{ marginBottom: 6 }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <div className="om-card" style={{ marginBottom: 0 }}>
+      <div className="om-head">
+        <h3 className="om-title">{t('search.title')}</h3>
+      </div>
+
+      <div className="om-row">
+        <label className="om-field" style={{ cursor: 'pointer' }}>
+          <input className="om-check" type="checkbox" checked={form.searchEnabled} onChange={(e) => field('searchEnabled', e.target.checked)} />
+          <span>{t('search.enabled')}</span>
+        </label>
+      </div>
+
+      <div className="om-grid">
+        <label className="om-field">
           <span className="om-sub">{t('search.provider')}</span>
-          <select className="om-select" value={form.searchProvider} onChange={(e) => field('searchProvider', e.target.value)} style={{ minWidth: 170 }}>
+          <select className="om-select" value={form.searchProvider} onChange={(e) => field('searchProvider', e.target.value)} style={{ minWidth: 180 }}>
             <option value="">{t('search.provider.auto')}</option>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>{p.name || p.id}</option>
             ))}
           </select>
         </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <label className="om-field">
           <span className="om-sub">{t('search.maxResults')}</span>
           <input className="om-input" type="number" min={1} max={50} style={{ width: 90 }} value={form.searchMaxResults} onChange={(e) => field('searchMaxResults', Number(e.target.value))} />
         </label>
-        <details style={{ color: 'var(--dsw-alias-label-secondary)' }}>
-          <summary className="om-sub">{t('search.advanced')}</summary>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span className="om-sub">{t('search.baseURL')}</span>
-              <input className="om-input" style={{ width: 220 }} value={form.searchBaseURL} onChange={(e) => field('searchBaseURL', e.target.value)} />
-            </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span className="om-sub">{t('search.apiKeyEnv')}</span>
-              <input className="om-input" style={{ width: 150 }} value={form.searchApiKeyEnv} onChange={(e) => field('searchApiKeyEnv', e.target.value)} />
-            </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span className="om-sub">API Key</span>
-              <input className="om-input" type="password" style={{ width: 160 }} value={form.searchApiKey} placeholder="(optional)" onChange={(e) => field('searchApiKey', e.target.value)} />
-            </label>
-          </div>
-        </details>
       </div>
+
+      <button className="om-adv" onClick={() => setShowAdvanced((s) => !s)} aria-expanded={showAdvanced} style={{ marginBottom: showAdvanced ? 10 : 0 }}>
+        <span aria-hidden="true">{showAdvanced ? '▾' : '▸'}</span> {t('search.advanced')}
+      </button>
+      {showAdvanced && (
+        <div className="om-grid">
+          <label className="om-field">
+            <span className="om-sub">{t('search.baseURL')}</span>
+            <input className="om-input" style={{ width: 260 }} value={form.searchBaseURL} onChange={(e) => field('searchBaseURL', e.target.value)} />
+          </label>
+          <label className="om-field">
+            <span className="om-sub">{t('search.apiKeyEnv')}</span>
+            <input className="om-input" style={{ width: 180 }} value={form.searchApiKeyEnv} onChange={(e) => field('searchApiKeyEnv', e.target.value)} />
+          </label>
+          <label className="om-field">
+            <span className="om-sub">API Key</span>
+            <input className="om-input" type="password" style={{ width: 220 }} value={form.searchApiKey} placeholder="(optional)" onChange={(e) => field('searchApiKey', e.target.value)} />
+          </label>
+        </div>
+      )}
+
       <div className="om-foot">
         <button className="om-btn" onClick={() => void test()} disabled={testing || loading}>
           {testing ? t('search.testing') : t('search.test')}
@@ -303,9 +318,9 @@ function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
         <button className="om-btn primary" onClick={() => void save()} disabled={saving || loading}>
           {t('search.save')}
         </button>
-        {loading && <span className="om-sub">{t('loading.fetching')}</span>}
         {flash && <span className={'om-status ' + flash.kind} role="status">{flash.text}</span>}
       </div>
+      <p className="om-note">{t('search.hint')}</p>
     </div>
   )
 }

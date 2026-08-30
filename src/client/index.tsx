@@ -15,6 +15,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { NS, dictionaries, zh, type OmniKey, type OmniTranslate } from './locales.js'
 import { MorphIcon, type IconNode } from 'morphicons/react'
+import { OmCombobox } from './OmCombobox.js'
 
 export const name = '@dsh-external/dsh-omniroute-models'
 export const inject = ['slots', 'locale']
@@ -86,6 +87,24 @@ const STYLE = `
 .om-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 14px;margin:2px 0 12px}
 .om-adv{display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;color:var(--dsw-alias-label-secondary,#6b7280);font:inherit;font-size:13px;cursor:pointer}
 .om-adv:hover{color:var(--dsw-alias-brand-primary,#4f6ef7)}
+.om-combo{position:relative;display:inline-block;min-width:150px}
+.om-combo-btn{width:100%;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:7px 12px;font-size:14px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;cursor:pointer;text-align:left;transition:background .15s ease,border-color .15s ease}
+.om-combo-btn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.08))}
+.om-combo-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.om-combo-val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.om-combo-caret{flex:none;color:var(--dsw-alias-label-secondary,#6b7280)}
+.om-combo-panel{position:absolute;z-index:20;top:calc(100% + 4px);left:0;min-width:100%;max-height:260px;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.28);overflow:hidden}
+.om-combo-search{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.om-combo-search svg{flex:none;color:var(--dsw-alias-label-tertiary)}
+.om-combo-search input{flex:1;min-width:0;border:none;background:none;font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);outline:none}
+.om-combo-search input::placeholder{color:var(--dsw-alias-label-tertiary)}
+.om-combo-list{overflow-y:auto;padding:4px;margin:0;list-style:none}
+.om-combo-opt{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:13px;border-radius:6px;cursor:pointer;color:var(--dsw-alias-label-primary)}
+.om-combo-opt.on{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.1))}
+.om-combo-opt.sel{color:var(--dsw-alias-brand-primary,#4f6ef7);font-weight:600}
+.om-combo-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.om-combo-check{margin-left:8px;flex:none}
+.om-combo-empty{color:var(--dsw-alias-label-tertiary);text-align:center;padding:14px 10px;font-size:13px}
 `
 
 interface CatalogModel {
@@ -542,14 +561,16 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
           <div className="om-group">
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span className="om-sub">{t('toolbar.route')}</span>
-              <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
-                {(catalog.providers ?? []).map((p) => (
-                  <option key={p.provider} value={p.provider}>
-                    {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · ' + t('option.notDiscoverable')}
-                  </option>
-                ))}
-                {!catalog.providers?.length && <option value={provider}>{catalog.provider}</option>}
-              </select>
+              <OmCombobox
+                aria-label={t('toolbar.route')}
+                value={provider}
+                onChange={selectProvider}
+                options={(catalog.providers ?? []).map((p) => ({
+                  value: p.provider,
+                  label: `${p.displayName}（${p.modelCount}）${p.compatible ? '' : ' · ' + t('option.notDiscoverable')}`,
+                }))}
+                style={{ minWidth: 170 }}
+              />
             </label>
             <input className="om-input om-search" placeholder={t('toolbar.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
             <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
@@ -557,14 +578,19 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
               <option value="text">{t('filter.modality.text')}</option>
               <option value="image">{t('filter.modality.image')}</option>
             </select>
-            <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
-              <option value="all">{t('filter.vendor.all')}</option>
-              {vendors.map((v) => (
-                <option key={v || '__none__'} value={v}>
-                  {v === '' ? t('filter.vendor.none') : v}
-                </option>
-              ))}
-            </select>
+            <OmCombobox
+              aria-label={t('filter.vendor.all')}
+              value={vendorFilter}
+              onChange={setVendorFilter}
+              searchable
+              searchPlaceholder={t('toolbar.search')}
+              emptyText={t('empty.noMatch')}
+              options={[
+                { value: 'all', label: t('filter.vendor.all') },
+                ...vendors.map((v) => ({ value: v, label: v === '' ? t('filter.vendor.none') : v })),
+              ]}
+              style={{ minWidth: 150 }}
+            />
             <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
               <option value="all">{t('filter.enabled.all')}</option>
               <option value="enabled">{t('filter.enabled.enabled')}</option>

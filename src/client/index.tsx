@@ -14,12 +14,22 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings'
 // Bring the locale runtime service (`ctx.locale`) into scope.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { NS, dictionaries, zh, type OmniKey, type OmniTranslate } from './locales.js'
+import { MorphIcon, type IconNode } from 'morphicons/react'
 
 export const name = '@dsh-external/dsh-omniroute-models'
 export const inject = ['slots', 'locale']
 
 const API = '/omniroute-models/api'
 const PAGE_SIZE = 50
+
+// Morphicons icon data (lucide-style `[tag, attrs]` lists). Constructed once at
+// module scope — never recreated per render (morphicons: hoist icon data).
+const IconChevronRight: IconNode = [['path', { d: 'm9 18 6-6-6-6' }]]
+const IconChevronDown: IconNode = [['path', { d: 'm6 9 6 6 6-6' }]]
+const IconRefresh: IconNode = [
+  ['path', { d: 'M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8' }],
+  ['path', { d: 'M21 3v5h-5' }],
+]
 
 const STYLE = `
 .om-root{color:var(--dsw-alias-label-primary);font-size:15px;line-height:1.6;font-family:var(--dsw-font-family,system-ui)}
@@ -31,7 +41,7 @@ const STYLE = `
 .om-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .om-input,.om-select{min-height:38px;padding:7px 12px;font-size:14px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px}
 .om-input::placeholder{color:var(--dsw-alias-label-tertiary)}
-.om-btn{min-height:38px;padding:7px 14px;font-size:14px;font-weight:500;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.om-btn{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:7px 14px;font-size:14px;font-weight:500;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .om-btn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.08))}
 .om-btn:disabled{opacity:.5;cursor:not-allowed}
 .om-btn.primary{color:var(--dsw-alias-label-primary-inverted,#fff);background:var(--dsw-alias-button-primary-fill);border-color:transparent}
@@ -292,7 +302,7 @@ function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
       </div>
 
       <button className="om-adv" onClick={() => setShowAdvanced((s) => !s)} aria-expanded={showAdvanced} style={{ marginBottom: showAdvanced ? 10 : 0 }}>
-        <span aria-hidden="true">{showAdvanced ? '▾' : '▸'}</span> {t('search.advanced')}
+        <MorphIcon icon={showAdvanced ? IconChevronDown : IconChevronRight} size={14} strokeWidth={2} /> {t('search.advanced')}
       </button>
       {showAdvanced && (
         <div className="om-grid">
@@ -555,7 +565,7 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
           </select>
           <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}>{t('action.selectMatching')}</button>
           <button className="om-btn" onClick={() => setChecked(new Set())}>{t('action.deselectAll')}</button>
-          <button className="om-btn" onClick={() => void load(provider)}>{t('action.refresh')}</button>
+          <button className="om-btn" onClick={() => void load(provider)}><MorphIcon icon={IconRefresh} size={15} strokeWidth={2} /> {t('action.refresh')}</button>
         </div>
 
         <div className="om-table-wrap" style={{ maxHeight: 420 }}>

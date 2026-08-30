@@ -43,5 +43,30 @@ export declare const Config: z<Schemastery.ObjectS<{
 type AppContext = Context & {
     webServer: WebServer;
 };
+/** User-editable web search config (the plugin's own settings namespace). */
+export interface SearchSection {
+    searchEnabled: boolean;
+    searchProvider: string;
+    searchBaseURL: string;
+    searchApiKeyEnv: string;
+    searchApiKey: string;
+    searchMaxResults: number;
+}
+/** Schema for the plugin-owned `omniroute-models` settings section (search). */
+export declare const searchSectionSchema: z<Schemastery.ObjectS<{
+    searchEnabled: z<boolean, boolean>;
+    searchProvider: z<string, string>;
+    searchBaseURL: z<string, string>;
+    searchApiKeyEnv: z<string, string>;
+    searchApiKey: z<string, string>;
+    searchMaxResults: z<number, number>;
+}>, Schemastery.ObjectT<{
+    searchEnabled: z<boolean, boolean>;
+    searchProvider: z<string, string>;
+    searchBaseURL: z<string, string>;
+    searchApiKeyEnv: z<string, string>;
+    searchApiKey: z<string, string>;
+    searchMaxResults: z<number, number>;
+}>>;
 export declare function apply(ctx: AppContext, config: Config): void;
 export {};

@@ -158,6 +158,155 @@ function Spinner() {
   )
 }
 
+
+interface SearchConfig {
+  searchEnabled: boolean
+  searchProvider: string
+  searchBaseURL: string
+  searchApiKeyEnv: string
+  searchApiKey: string
+  searchMaxResults: number
+}
+
+const SEARCH_DEFAULT_BASE = 'http://localhost:20128/v1'
+
+function SearchConfigCard({ t }: { t: OmniTranslate }): ReactNode {
+  const [form, setForm] = useState<SearchConfig>({
+    searchEnabled: false,
+    searchProvider: '',
+    searchBaseURL: SEARCH_DEFAULT_BASE,
+    searchApiKeyEnv: 'OMNIROUTE_API_KEY',
+    searchApiKey: '',
+    searchMaxResults: 8,
+  })
+  const [providers, setProviders] = useState<Array<{ id: string; name?: string }>>([])
+  const [revision, setRevision] = useState<number | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+
+  async function load() {
+    setLoading(true)
+    setFlash(null)
+    try {
+      const res = await fetch(API + '/search-config', { cache: 'no-store' })
+      const data = (await res.json()) as { config?: SearchConfig; providers?: Array<{ id: string; name?: string }>; revision?: number }
+      if (data.config) setForm((f) => ({ ...f, ...data.config }))
+      setProviders(data.providers ?? [])
+      setRevision(data.revision)
+    } catch (e) {
+      setFlash({ kind: 'err', text: String((e as Error).message ?? e) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function field<K extends keyof SearchConfig>(key: K, value: SearchConfig[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function save() {
+    setSaving(true)
+    setFlash(null)
+    try {
+      const res = await fetch(API + '/search-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: form, expectedRevision: revision }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string; code?: string }
+      if (!res.ok || !data.ok) {
+        setFlash({ kind: 'err', text: hostMessage(t, data.code, undefined, data.error ?? t('status.applyFailed')) })
+        return
+      }
+      setFlash({ kind: 'ok', text: t('search.saved') })
+      await load()
+    } catch (e) {
+      setFlash({ kind: 'err', text: String((e as Error).message ?? e) })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function test() {
+    setTesting(true)
+    setFlash(null)
+    try {
+      const res = await fetch(API + '/search-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: form }),
+      })
+      const data = (await res.json()) as { ok?: boolean; count?: number; error?: string }
+      if (data.ok) setFlash({ kind: 'ok', text: t('search.testOk', { count: data.count ?? 0 }) })
+      else setFlash({ kind: 'err', text: data.error ?? t('search.testFail', { error: '' }) })
+    } catch (e) {
+      setFlash({ kind: 'err', text: t('search.testFail', { error: String((e as Error).message ?? e) }) })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <div className="om-card" style={{ marginBottom: 16 }}>
+      <h3>{t('search.title')}</h3>
+      <p style={{ color: 'var(--dsw-alias-label-secondary)', margin: '0 0 12px', fontSize: 13 }}>{t('search.hint')}</p>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer' }}>
+        <input className="om-check" type="checkbox" checked={form.searchEnabled} onChange={(e) => field('searchEnabled', e.target.checked)} />
+        <span className="om-sub">{t('search.enabled')}</span>
+      </label>
+      <div className="om-toolbar" style={{ marginBottom: 6 }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span className="om-sub">{t('search.provider')}</span>
+          <select className="om-select" value={form.searchProvider} onChange={(e) => field('searchProvider', e.target.value)} style={{ minWidth: 170 }}>
+            <option value="">{t('search.provider.auto')}</option>
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>{p.name || p.id}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span className="om-sub">{t('search.maxResults')}</span>
+          <input className="om-input" type="number" min={1} max={50} style={{ width: 90 }} value={form.searchMaxResults} onChange={(e) => field('searchMaxResults', Number(e.target.value))} />
+        </label>
+        <details style={{ color: 'var(--dsw-alias-label-secondary)' }}>
+          <summary className="om-sub">{t('search.advanced')}</summary>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="om-sub">{t('search.baseURL')}</span>
+              <input className="om-input" style={{ width: 220 }} value={form.searchBaseURL} onChange={(e) => field('searchBaseURL', e.target.value)} />
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="om-sub">{t('search.apiKeyEnv')}</span>
+              <input className="om-input" style={{ width: 150 }} value={form.searchApiKeyEnv} onChange={(e) => field('searchApiKeyEnv', e.target.value)} />
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="om-sub">API Key</span>
+              <input className="om-input" type="password" style={{ width: 160 }} value={form.searchApiKey} placeholder="(optional)" onChange={(e) => field('searchApiKey', e.target.value)} />
+            </label>
+          </div>
+        </details>
+      </div>
+      <div className="om-foot">
+        <button className="om-btn" onClick={() => void test()} disabled={testing || loading}>
+          {testing ? t('search.testing') : t('search.test')}
+        </button>
+        <button className="om-btn primary" onClick={() => void save()} disabled={saving || loading}>
+          {t('search.save')}
+        </button>
+        {loading && <span className="om-sub">{t('loading.fetching')}</span>}
+        {flash && <span className={'om-status ' + flash.kind} role="status">{flash.text}</span>}
+      </div>
+    </div>
+  )
+}
+
 function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate }): ReactNode {
   const t = props.t
   const [catalog, setCatalog] = useState<Catalog | null>(null)
@@ -361,6 +510,7 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
 
   return (
     <div className="om-root">
+      <SearchConfigCard t={t} />
       <div className="om-head">
         <h3 className="om-title">{t('head.title')}</h3>
         <span className="om-sub">

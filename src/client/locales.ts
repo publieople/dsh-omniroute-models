@@ -69,6 +69,23 @@ export const zh = {
 
   'aria.selectModel': '选择 {id}',
 
+  'search.title': '联网搜索',
+  'search.enabled': '启用 OmniRoute 联网搜索',
+  'search.provider': '搜索后端',
+  'search.provider.auto': 'OmniRoute 默认',
+  'search.baseURL': '网关地址',
+  'search.apiKeyEnv': '密钥环境变量',
+  'search.maxResults': '结果上限',
+  'search.advanced': '高级',
+  'search.test': '测试连接',
+  'search.testing': '测试中…',
+  'search.testOk': '连接成功：{count} 条结果',
+  'search.testFail': '测试失败：{error}',
+  'search.save': '保存搜索配置',
+  'search.saved': '搜索配置已保存',
+  'search.minKey': '启用搜索需配置网关地址与密钥环境变量。',
+  'search.hint': '在 OmniRoute 后台给所选搜索引擎（Tavily/Brave/Ollama 等）配置 API key 后，DSH 的 web_search 才会返回结果。',
+
   // Host-driven message/error copy (the host returns a stable `code` + params;
   // the client translates it, falling back to the raw `message`).
   'host.catalog.notConfigured':
@@ -145,6 +162,23 @@ export const en: Record<OmniKey, string> = {
     'Saving replaces this route’s models list in one go (DSH serves exactly the checked ones). Filters only narrow the view — they never change what a save writes. Nothing is written until you save.',
 
   'aria.selectModel': 'Select {id}',
+
+  'search.title': 'Web search',
+  'search.enabled': 'Enable OmniRoute web search',
+  'search.provider': 'Search backend',
+  'search.provider.auto': 'OmniRoute default',
+  'search.baseURL': 'Gateway base URL',
+  'search.apiKeyEnv': 'Key environment variable',
+  'search.maxResults': 'Max results',
+  'search.advanced': 'Advanced',
+  'search.test': 'Test connection',
+  'search.testing': 'Testing…',
+  'search.testOk': 'OK: {count} results',
+  'search.testFail': 'Test failed: {error}',
+  'search.save': 'Save search config',
+  'search.saved': 'Search config saved',
+  'search.minKey': 'A gateway base URL and a key environment variable are required to enable search.',
+  'search.hint': 'After configuring an API key for the chosen search engine (Tavily/Brave/Ollama, …) in OmniRoute, DSH’s web_search will return results.',
 
   'host.catalog.notConfigured':
     'No llm-pi-ai provider is configured. Add the route (baseURL + apiKeyEnv) in the “Models” settings first.',

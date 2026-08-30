@@ -20,13 +20,15 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
+import type { SettingsProvider, SettingsScope } from '@deepseek-ai/dsh-settings'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import { WebError } from '@deepseek-ai/dsh-web'
+import type { WebSearchProvider, WebSearchSource, WebRuntime } from '@deepseek-ai/dsh-web'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 export const name = '@dsh-external/dsh-omniroute-models'
-export const inject = ['webServer']
+export const inject = ['webServer', 'web']
 
 export interface Config {
   /** Default provider route to manage (overridden by ?provider=). */
@@ -203,6 +205,107 @@ async function fetchCatalog(baseURL: string, apiKey: string | undefined, profile
     })
   }
   return rows
+}
+
+// ---- Web search: plugin-owned settings section + ctx.web provider ----
+const SEARCH_NS = settingsNamespace('omniroute-models')
+
+/** User-editable web search config (the plugin's own settings namespace). */
+export interface SearchSection {
+  searchEnabled: boolean
+  searchProvider: string
+  searchBaseURL: string
+  searchApiKeyEnv: string
+  searchApiKey: string
+  searchMaxResults: number
+}
+
+/** Schema for the plugin-owned `omniroute-models` settings section (search). */
+export const searchSectionSchema = z.object({
+  searchEnabled: z.boolean().default(false),
+  searchProvider: z.string().default(''),
+  searchBaseURL: z.string().default(DEFAULT_BASE_URL),
+  searchApiKeyEnv: z.string().default('OMNIROUTE_API_KEY'),
+  searchApiKey: z.string().role('secret').default(''),
+  searchMaxResults: z.number().step(1).min(1).max(50).default(8),
+})
+
+function resolveSearch(value: unknown): SearchSection {
+  const v = (value ?? {}) as Record<string, unknown>
+  return {
+    searchEnabled: v.searchEnabled === true,
+    searchProvider: typeof v.searchProvider === 'string' ? v.searchProvider : '',
+    searchBaseURL: typeof v.searchBaseURL === 'string' && v.searchBaseURL ? v.searchBaseURL : DEFAULT_BASE_URL,
+    searchApiKeyEnv: typeof v.searchApiKeyEnv === 'string' ? v.searchApiKeyEnv : 'OMNIROUTE_API_KEY',
+    searchApiKey: typeof v.searchApiKey === 'string' ? v.searchApiKey : '',
+    searchMaxResults: typeof v.searchMaxResults === 'number' && Number.isInteger(v.searchMaxResults) ? v.searchMaxResults : 8,
+  }
+}
+
+function searchKeyOf(s: SearchSection): string | undefined {
+  if (s.searchApiKey && s.searchApiKey.trim()) return s.searchApiKey
+  if (s.searchApiKeyEnv && s.searchApiKeyEnv.trim()) return process.env[s.searchApiKeyEnv] || undefined
+  return undefined
+}
+
+/** The provider registered into `ctx.web` so DSH's `web_search` uses OmniRoute. */
+function makeSearchProvider(s: SearchSection): WebSearchProvider {
+  return {
+    id: 'omniroute',
+    available() {
+      return s.searchEnabled && /^https?:\/\//.test(s.searchBaseURL) && !!searchKeyOf(s)
+    },
+    async search(req, signal) {
+      const key = searchKeyOf(s)
+      const endpoint = joinUrl(s.searchBaseURL, 'search')
+      const body: Record<string, unknown> = { query: req.query, max_results: req.maxResults ?? s.searchMaxResults }
+      if (s.searchProvider) body.provider = s.searchProvider
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (key) headers['Authorization'] = `Bearer ${key}`
+      const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal })
+      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      if (!res.ok) {
+        const err = json.error as Record<string, unknown> | undefined
+        const msg = typeof err?.message === 'string' ? err.message : typeof json.message === 'string' ? json.message : `OmniRoute search failed (${res.status})`
+        throw new WebError(msg, 'WEB_PROVIDER_ERROR')
+      }
+      const rawItems = Array.isArray(json.data) ? json.data : Array.isArray(json.results) ? json.results : Array.isArray(json.sources) ? json.sources : []
+      const sources: WebSearchSource[] = rawItems
+        .map((it) => {
+          const o = (it ?? {}) as Record<string, unknown>
+          const url = typeof o.url === 'string' ? o.url : typeof o.link === 'string' ? o.link : ''
+          const title = typeof o.title === 'string' ? o.title : typeof o.name === 'string' ? o.name : undefined
+          const snippet = typeof o.snippet === 'string' ? o.snippet : typeof o.description === 'string' ? o.description : undefined
+          const publishedAt = typeof o.publishedAt === 'string' ? o.publishedAt : typeof o.published_at === 'string' ? o.published_at : undefined
+          return { url, title, snippet, publishedAt } as WebSearchSource
+        })
+        .filter((s) => s.url.length > 0)
+      return {
+        content: typeof json.content === 'string' ? json.content : typeof json.answer === 'string' ? json.answer : undefined,
+        sources,
+        truncated: false,
+      }
+    },
+  }
+}
+
+/** Best-effort list of OmniRoute's configured search providers (GET /v1/search). */
+async function omniSearchProviders(s: SearchSection): Promise<Array<{ id: string; name?: string }>> {
+  const key = searchKeyOf(s)
+  const endpoint = joinUrl(s.searchBaseURL, 'search')
+  const headers: Record<string, string> = {}
+  if (key) headers['Authorization'] = `Bearer ${key}`
+  try {
+    const res = await fetch(endpoint, { headers, signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return []
+    const json = (await res.json()) as { data?: unknown[] }
+    return (json.data ?? []).map((p) => {
+      const o = (p ?? {}) as Record<string, unknown>
+      return { id: typeof o.id === 'string' ? o.id : '', name: typeof o.name === 'string' ? o.name : undefined }
+    }).filter((p) => p.id.length > 0)
+  } catch {
+    return []
+  }
 }
 
 export function apply(ctx: AppContext, config: Config): void {
@@ -384,6 +487,123 @@ export function apply(ctx: AppContext, config: Config): void {
       },
     }),
     'omniroute-models: apply route',
+  )
+
+  // Web search: own the `omniroute-models` settings section and sync a
+  // `ctx.web` search provider so DSH's `web_search` uses OmniRoute.
+  let searchSection: SearchSection = resolveSearch(undefined)
+  let searchDisposer: (() => void) | null = null
+  let searchRegistered = false
+  ctx.effect(() => {
+    const settings = resolveSettings()
+    let scope: SettingsScope<SearchSection> | undefined
+    if (settings) {
+      try {
+        scope = settings.register(SEARCH_NS, searchSectionSchema, { applies: 'live' })
+      } catch {
+        scope = undefined // already registered (re-entrant composition) — read via settings.get
+      }
+    }
+    const sync = (value?: unknown): void => {
+      searchSection = resolveSearch(value)
+      const webRuntime = ctx.get('web') as WebRuntime | undefined
+      if (!webRuntime) return
+      if (searchSection.searchEnabled && !searchRegistered) {
+        searchDisposer = webRuntime.registerSearchProvider(makeSearchProvider(searchSection))
+        searchRegistered = true
+      } else if (!searchSection.searchEnabled && searchRegistered) {
+        searchDisposer?.()
+        searchDisposer = null
+        searchRegistered = false
+      }
+    }
+    if (scope) {
+      sync(scope.get())
+      const unsub = scope.watch(() => sync(scope.get()))
+      return () => { unsub() }
+    }
+    return () => {}
+  }, 'omniroute-models: search provider')
+
+  // Search config: GET (read) / POST (write) one same-origin route.
+  ctx.effect(() =>
+    ctx.webServer.register({
+      kind: 'exact',
+      path: `${apiRoot}/search-config`,
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        void (async () => {
+          try {
+            const settings = resolveSettings()
+            if (!settings) {
+              sendJson(res, 503, { error: 'settings 服务不可用' })
+              return
+            }
+            if (req.method === 'POST') {
+              const body = JSON.parse((await readBody(req)) || '{}') as { config?: unknown; expectedRevision?: number }
+              const config = resolveSearch(body.config)
+              const desc = settings.describe().find((d) => d.ns === SEARCH_NS)
+              const expectedRevision = typeof body.expectedRevision === 'number' ? body.expectedRevision : desc?.revision
+              await settings.mutate(SEARCH_NS, [{ op: 'set', path: [], value: config }], expectedRevision)
+              sendJson(res, 200, { ok: true, config })
+              return
+            }
+            const section = settings.get(SEARCH_NS) as unknown
+            const config = resolveSearch(section)
+            const providers = await omniSearchProviders(config)
+            const desc = settings.describe().find((d) => d.ns === SEARCH_NS)
+            sendJson(res, 200, { config, providers, revision: desc?.revision })
+          } catch (e) {
+            const err = e as Error & { code?: string }
+            const code = err.code
+            const status = code === 'SETTINGS_CONFLICT' ? 409 : code === 'settings-rejected' ? 422 : 500
+            sendJson(res, status, { error: String(err.message ?? e), code })
+          }
+        })()
+      },
+    }),
+    'omniroute-models: search-config route',
+  )
+
+  // Search connectivity test with the caller's current (possibly unsaved) config.
+  ctx.effect(() =>
+    ctx.webServer.register({
+      kind: 'exact',
+      path: `${apiRoot}/search-test`,
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        void (async () => {
+          try {
+            const body = JSON.parse((await readBody(req)) || '{}') as { config?: unknown }
+            const config = resolveSearch(body.config)
+            const key = searchKeyOf(config)
+            if (!key || !/^https?:\/\//.test(config.searchBaseURL)) {
+              sendJson(res, 200, { ok: false, error: '需要网关地址与密钥', code: 'search.minKey' })
+              return
+            }
+            const endpoint = joinUrl(config.searchBaseURL, 'search')
+            const requestBody: Record<string, unknown> = { query: 'deepseek harness', max_results: 1 }
+            if (config.searchProvider) requestBody.provider = config.searchProvider
+            const probe = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              body: JSON.stringify(requestBody),
+              signal: AbortSignal.timeout(20000),
+            })
+            const json = (await probe.json().catch(() => ({}))) as Record<string, unknown>
+            if (!probe.ok) {
+              const err = json.error as Record<string, unknown> | undefined
+              const msg = typeof err?.message === 'string' ? err.message : `搜索失败（${probe.status}）`
+              sendJson(res, 200, { ok: false, error: msg, code: 'upstream_error' })
+              return
+            }
+            const rawItems = Array.isArray(json.data) ? json.data : Array.isArray(json.results) ? json.results : []
+            sendJson(res, 200, { ok: true, count: rawItems.length })
+          } catch (e) {
+            sendJson(res, 200, { ok: false, error: String((e as Error).message ?? e) })
+          }
+        })()
+      },
+    }),
+    'omniroute-models: search-test route',
   )
 
   ctx.logger?.info?.('[omniroute-models] routes mounted at ' + apiRoot)

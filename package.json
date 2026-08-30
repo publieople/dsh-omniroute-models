@@ -13,7 +13,7 @@
     "README.zh.md",
     "README.i18n.yaml"
   ],
-  "license": "BSD-3-Clause",
+  "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0-rc <5",
     "@deepseek-ai/schemastery": ">=3.18.0 <4",

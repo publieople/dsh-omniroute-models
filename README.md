@@ -78,7 +78,7 @@ npm run build:client   # client → lib/client.js
 ## Install / inject
 
 - In this environment (super-injector): `dev_inject_plugin /path/to/dsh-omniroute-models`, host+client applied immediately.
-- Production bundle: `dsh plugin --profile web add <directory | tgz | github:...>`, then restart the target profile.
+- Production bundle (GitHub): `dsh plugin --profile web add github:publieople/dsh-omniroute-models`, then restart the target profile.
 
 ## Usage
 

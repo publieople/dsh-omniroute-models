@@ -30,6 +30,8 @@ const IconRefresh: IconNode = [
   ['path', { d: 'M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8' }],
   ['path', { d: 'M21 3v5h-5' }],
 ]
+const IconCheck: IconNode = [['path', { d: 'M20 6 9 17l-5-5' }]]
+const IconX: IconNode = [['path', { d: 'M18 6 6 18' }], ['path', { d: 'm6 6 12 12' }]]
 
 const STYLE = `
 .om-root{color:var(--dsw-alias-label-primary);font-size:15px;line-height:1.6;font-family:var(--dsw-font-family,system-ui)}
@@ -38,7 +40,11 @@ const STYLE = `
 .om-title{font-size:18px;font-weight:600;color:var(--dsw-alias-label-primary);margin:0}
 .om-sub{font-size:13px;color:var(--dsw-alias-label-secondary)}
 .om-count{margin-left:auto;font-size:13px;color:var(--dsw-alias-label-secondary)}
-.om-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.om-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.om-group{display:flex;flex-wrap:wrap;gap:10px;align-items:center;min-width:0}
+.om-group.right{margin-left:auto;justify-content:flex-end}
+.om-toolbar .om-select{min-width:118px}
+.om-search{flex:1 1 180px;min-width:170px;max-width:340px}
 .om-input,.om-select{min-height:38px;padding:7px 12px;font-size:14px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px}
 .om-input::placeholder{color:var(--dsw-alias-label-tertiary)}
 .om-btn{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:7px 14px;font-size:14px;font-weight:500;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
@@ -533,39 +539,43 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
         </div>
 
         <div className="om-toolbar">
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span className="om-sub">{t('toolbar.route')}</span>
-            <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
-              {(catalog.providers ?? []).map((p) => (
-                <option key={p.provider} value={p.provider}>
-                  {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · ' + t('option.notDiscoverable')}
+          <div className="om-group">
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="om-sub">{t('toolbar.route')}</span>
+              <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
+                {(catalog.providers ?? []).map((p) => (
+                  <option key={p.provider} value={p.provider}>
+                    {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · ' + t('option.notDiscoverable')}
+                  </option>
+                ))}
+                {!catalog.providers?.length && <option value={provider}>{catalog.provider}</option>}
+              </select>
+            </label>
+            <input className="om-input om-search" placeholder={t('toolbar.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
+            <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
+              <option value="all">{t('filter.modality.all')}</option>
+              <option value="text">{t('filter.modality.text')}</option>
+              <option value="image">{t('filter.modality.image')}</option>
+            </select>
+            <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
+              <option value="all">{t('filter.vendor.all')}</option>
+              {vendors.map((v) => (
+                <option key={v || '__none__'} value={v}>
+                  {v === '' ? t('filter.vendor.none') : v}
                 </option>
               ))}
-              {!catalog.providers?.length && <option value={provider}>{catalog.provider}</option>}
             </select>
-          </label>
-          <input className="om-input" style={{ width: 240 }} placeholder={t('toolbar.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
-            <option value="all">{t('filter.modality.all')}</option>
-            <option value="text">{t('filter.modality.text')}</option>
-            <option value="image">{t('filter.modality.image')}</option>
-          </select>
-          <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
-            <option value="all">{t('filter.vendor.all')}</option>
-            {vendors.map((v) => (
-              <option key={v || '__none__'} value={v}>
-                {v === '' ? t('filter.vendor.none') : v}
-              </option>
-            ))}
-          </select>
-          <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
-            <option value="all">{t('filter.enabled.all')}</option>
-            <option value="enabled">{t('filter.enabled.enabled')}</option>
-            <option value="disabled">{t('filter.enabled.disabled')}</option>
-          </select>
-          <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}>{t('action.selectMatching')}</button>
-          <button className="om-btn" onClick={() => setChecked(new Set())}>{t('action.deselectAll')}</button>
-          <button className="om-btn" onClick={() => void load(provider)}><MorphIcon icon={IconRefresh} size={15} strokeWidth={2} /> {t('action.refresh')}</button>
+            <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
+              <option value="all">{t('filter.enabled.all')}</option>
+              <option value="enabled">{t('filter.enabled.enabled')}</option>
+              <option value="disabled">{t('filter.enabled.disabled')}</option>
+            </select>
+          </div>
+          <div className="om-group right">
+            <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}><MorphIcon icon={IconCheck} size={15} strokeWidth={2} /> {t('action.selectMatching')}</button>
+            <button className="om-btn" onClick={() => setChecked(new Set())}><MorphIcon icon={IconX} size={15} strokeWidth={2} /> {t('action.deselectAll')}</button>
+            <button className="om-btn" onClick={() => void load(provider)}><MorphIcon icon={IconRefresh} size={15} strokeWidth={2} /> {t('action.refresh')}</button>
+          </div>
         </div>
 
         <div className="om-table-wrap" style={{ maxHeight: 420 }}>

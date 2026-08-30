@@ -62,6 +62,9 @@ const STYLE = `
 .om-skel{border:1px solid var(--dsw-alias-border-l1);border-radius:10px;padding:20px;background:var(--dsw-alias-bg-layer-1)}
 .om-skel .bar{height:14px;border-radius:6px;background:var(--dsw-alias-bg-skeleton);margin:0 0 12px}
 .om-check{width:16px;height:16px;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}
+.om-tabs{display:flex;gap:2px;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e7eb);align-items:flex-end;margin-bottom:4px;flex-wrap:wrap}
+.om-tab{border:none;background:none;font:inherit;font-size:13px;color:var(--dsw-alias-label-secondary,#6b7280);padding:7px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.om-tab.on{color:var(--dsw-alias-brand-primary,#4f6ef7);border-bottom-color:var(--dsw-alias-brand-primary,#4f6ef7);font-weight:600}
 `
 
 interface CatalogModel {
@@ -321,6 +324,7 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [page, setPage] = useState(1)
+  const [tab, setTab] = useState<'models' | 'search'>('models')
 
   let loadCtrl: AbortController | null = null
   async function load(p?: string) {
@@ -452,183 +456,162 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
     }
   }
 
-  // Loading (first fetch) → skeleton
-  if (loading && !catalog) {
-    return (
-      <div className="om-root" aria-busy="true">
-        <div className="om-skel">
-          <div className="bar" style={{ width: '40%' }} />
-          <div className="bar" style={{ width: '80%' }} />
-          <div className="bar" style={{ width: '60%' }} />
+  function renderModels(): ReactNode {
+    if (loading && !catalog) {
+      return (
+        <div aria-busy="true">
+          <div className="om-skel">
+            <div className="bar" style={{ width: '40%' }} />
+            <div className="bar" style={{ width: '80%' }} />
+            <div className="bar" style={{ width: '60%' }} />
+          </div>
+          <p className="om-note">{t('loading.fetching')}</p>
         </div>
-        <p className="om-note">{t('loading.fetching')}</p>
-      </div>
-    )
-  }
-
-  if (error && !catalog) {
-    return (
-      <div className="om-root">
+      )
+    }
+    if (error && !catalog) {
+      return (
         <div className="om-card">
           <h3>{t('error.loadFailed')}</h3>
           <p>{error}</p>
-          <button className="om-btn" onClick={() => void load()}>
-            {t('error.retry')}
-          </button>
+          <button className="om-btn" onClick={() => void load()}>{t('error.retry')}</button>
         </div>
-      </div>
-    )
-  }
-
-  if (!catalog?.configured) {
-    return (
-      <div className="om-root">
+      )
+    }
+    if (!catalog?.configured) {
+      return (
         <div className="om-card">
           <h3>{t('configured.title')}</h3>
           <p>{hostMessage(t, catalog?.code, catalog?.params, catalog?.message ?? t('configured.notSet'))}</p>
-          <button className="om-btn" onClick={() => void load()}>
-            {t('configured.recheck')}
-          </button>
+          <button className="om-btn" onClick={() => void load()}>{t('configured.recheck')}</button>
         </div>
-      </div>
-    )
-  }
-
-  if (catalog?.compatible === false) {
-    return (
-      <div className="om-root">
+      )
+    }
+    if (catalog?.compatible === false) {
+      return (
         <div className="om-card">
           <h3>{catalog.displayName || catalog.provider}</h3>
           <p>{hostMessage(t, catalog?.code, catalog?.params, catalog?.message ?? t('notCompatible.msg'))}</p>
-          <button className="om-btn" onClick={() => void selectProvider(provider === catalog.provider ? '' : catalog.provider)}>
-            {t('action.back')}
-          </button>
+          <button className="om-btn" onClick={() => void selectProvider(provider === catalog.provider ? '' : catalog.provider)}>{t('action.back')}</button>
         </div>
-      </div>
+      )
+    }
+    return (
+      <>
+        <div className="om-head">
+          <h3 className="om-title">{t('head.title')}</h3>
+          <span className="om-sub">
+            {catalog.displayName || catalog.provider}
+            {catalog.api ? ' · ' + catalog.api : ''} · {catalog.baseURL}
+          </span>
+          <span className="om-count">{t('counts.enabled', { enabled: enabledCount, total })}</span>
+        </div>
+
+        <div className="om-toolbar">
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span className="om-sub">{t('toolbar.route')}</span>
+            <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
+              {(catalog.providers ?? []).map((p) => (
+                <option key={p.provider} value={p.provider}>
+                  {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · ' + t('option.notDiscoverable')}
+                </option>
+              ))}
+              {!catalog.providers?.length && <option value={provider}>{catalog.provider}</option>}
+            </select>
+          </label>
+          <input className="om-input" style={{ width: 240 }} placeholder={t('toolbar.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
+            <option value="all">{t('filter.modality.all')}</option>
+            <option value="text">{t('filter.modality.text')}</option>
+            <option value="image">{t('filter.modality.image')}</option>
+          </select>
+          <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
+            <option value="all">{t('filter.vendor.all')}</option>
+            {vendors.map((v) => (
+              <option key={v || '__none__'} value={v}>
+                {v === '' ? t('filter.vendor.none') : v}
+              </option>
+            ))}
+          </select>
+          <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
+            <option value="all">{t('filter.enabled.all')}</option>
+            <option value="enabled">{t('filter.enabled.enabled')}</option>
+            <option value="disabled">{t('filter.enabled.disabled')}</option>
+          </select>
+          <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}>{t('action.selectMatching')}</button>
+          <button className="om-btn" onClick={() => setChecked(new Set())}>{t('action.deselectAll')}</button>
+          <button className="om-btn" onClick={() => void load(provider)}>{t('action.refresh')}</button>
+        </div>
+
+        <div className="om-table-wrap" style={{ maxHeight: 420 }}>
+          <table className="om-table">
+            <thead>
+              <tr>
+                <th style={{ width: 44 }}></th>
+                <th>{t('col.model')}</th>
+                <th style={{ width: 108 }}>{t('col.modality')}</th>
+                <th style={{ width: 80, textAlign: 'right' }}>{t('col.context')}</th>
+                <th style={{ width: 80, textAlign: 'right' }}>{t('col.output')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="om-empty">{t('empty.noMatch')}</div>
+                  </td>
+                </tr>
+              )}
+              {paged.map((m) => (
+                <tr key={m.id} className={checked.has(m.id) ? 'om-sel' : undefined}>
+                  <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
+                    <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={t('aria.selectModel', { id: m.id })} />
+                  </td>
+                  <td>
+                    <div className="om-model-cell">
+                      {m.vendor && <span className="om-vendor">{m.vendor} / </span>}
+                      <span className="om-id">{m.vendor ? m.id.slice(m.vendor.length + 1) : m.id}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className={'om-badge' + (m.input.includes('image') ? ' img' : '')}>
+                      {m.input.includes('image') ? t('modality.textImage') : t('modality.text')}
+                    </span>
+                  </td>
+                  <td className="om-meta" style={{ textAlign: 'right' }}>{fmtTokens(m.contextWindow)}</td>
+                  <td className="om-meta" style={{ textAlign: 'right' }}>{fmtTokens(m.maxTokens)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="om-pager" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <button className="om-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>{t('action.prevPage')}</button>
+          <span className="om-sub">{t('counts.page', { page: safePage, totalPages })}</span>
+          <button className="om-btn" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>{t('action.nextPage')}</button>
+        </div>
+
+        <div className="om-foot">
+          <button className="om-btn primary" onClick={() => void apply()} disabled={saving} style={{ minWidth: 120 }}>
+            {saving ? t('action.saving') : t('action.save')}
+          </button>
+          <span className="om-sub">{t('counts.selected', { checked: checked.size, matched: filtered.length, total })}</span>
+          {flash && <span className={'om-status ' + flash.kind} role="status">{flash.text}</span>}
+        </div>
+        <p className="om-note">{t('note.save')}</p>
+      </>
     )
   }
 
   return (
     <div className="om-root">
-      <SearchConfigCard t={t} />
-      <div className="om-head">
-        <h3 className="om-title">{t('head.title')}</h3>
-        <span className="om-sub">
-          {catalog.displayName || catalog.provider}
-          {catalog.api ? ' · ' + catalog.api : ''} · {catalog.baseURL}
-        </span>
-        <span className="om-count">{t('counts.enabled', { enabled: enabledCount, total })}</span>
+      <div className="om-tabs" role="tablist" aria-label={t('nav')}>
+        <button role="tab" aria-selected={tab === 'models'} className={tab === 'models' ? 'om-tab on' : 'om-tab'} onClick={() => setTab('models')}>{t('tab.models')}</button>
+        <button role="tab" aria-selected={tab === 'search'} className={tab === 'search' ? 'om-tab on' : 'om-tab'} onClick={() => setTab('search')}>{t('tab.search')}</button>
       </div>
-
-      <div className="om-toolbar">
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span className="om-sub">{t('toolbar.route')}</span>
-          <select className="om-select" value={provider} onChange={(e) => selectProvider(e.target.value)} style={{ minWidth: 170 }}>
-            {(catalog.providers ?? []).map((p) => (
-              <option key={p.provider} value={p.provider}>
-                {p.displayName}（{p.modelCount}）{p.compatible ? '' : ' · ' + t('option.notDiscoverable')}
-              </option>
-            ))}
-            {!catalog.providers?.length && <option value={provider}>{catalog.provider}</option>}
-          </select>
-        </label>
-        <input
-          className="om-input"
-          style={{ width: 240 }}
-          placeholder={t('toolbar.search')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <select className="om-select" value={modality} onChange={(e) => setModality(e.target.value as typeof modality)}>
-          <option value="all">{t('filter.modality.all')}</option>
-          <option value="text">{t('filter.modality.text')}</option>
-          <option value="image">{t('filter.modality.image')}</option>
-        </select>
-        <select className="om-select" value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)} style={{ minWidth: 150 }}>
-          <option value="all">{t('filter.vendor.all')}</option>
-          {vendors.map((v) => (
-            <option key={v || '__none__'} value={v}>
-              {v === '' ? t('filter.vendor.none') : v}
-            </option>
-          ))}
-        </select>
-        <select className="om-select" value={enabledFilter} onChange={(e) => setEnabledFilter(e.target.value as typeof enabledFilter)}>
-          <option value="all">{t('filter.enabled.all')}</option>
-          <option value="enabled">{t('filter.enabled.enabled')}</option>
-          <option value="disabled">{t('filter.enabled.disabled')}</option>
-        </select>
-        <button className="om-btn" onClick={() => setChecked((prev) => { const next = new Set(prev); for (const m of filtered) next.add(m.id); return next })}>
-          {t('action.selectMatching')}
-        </button>
-        <button className="om-btn" onClick={() => setChecked(new Set())}>
-          {t('action.deselectAll')}
-        </button>
-        <button className="om-btn" onClick={() => void load(provider)}>
-          {t('action.refresh')}
-        </button>
-      </div>
-
-      <div className="om-table-wrap" style={{ maxHeight: 420 }}>
-        <table className="om-table">
-          <thead>
-            <tr>
-              <th style={{ width: 44 }}></th>
-              <th>{t('col.model')}</th>
-              <th style={{ width: 108 }}>{t('col.modality')}</th>
-              <th style={{ width: 80, textAlign: 'right' }}>{t('col.context')}</th>
-              <th style={{ width: 80, textAlign: 'right' }}>{t('col.output')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5}>
-                  <div className="om-empty">{t('empty.noMatch')}</div>
-                </td>
-              </tr>
-            )}
-            {paged.map((m) => (
-              <tr key={m.id} className={checked.has(m.id) ? 'om-sel' : undefined}>
-                <td style={{ verticalAlign: 'middle', padding: '10px 0', textAlign: 'center' }}>
-                  <input className="om-check" type="checkbox" checked={checked.has(m.id)} onChange={() => toggle(m.id)} aria-label={t('aria.selectModel', { id: m.id })} />
-                </td>
-                <td>
-                  <div className="om-model-cell">
-                    {m.vendor && <span className="om-vendor">{m.vendor} / </span>}
-                    <span className="om-id">{m.vendor ? m.id.slice(m.vendor.length + 1) : m.id}</span>
-                  </div>
-                </td>
-                <td>
-                  <span className={'om-badge' + (m.input.includes('image') ? ' img' : '')}>
-                    {m.input.includes('image') ? t('modality.textImage') : t('modality.text')}
-                  </span>
-                </td>
-                <td className="om-meta" style={{ textAlign: 'right' }}>{fmtTokens(m.contextWindow)}</td>
-                <td className="om-meta" style={{ textAlign: 'right' }}>{fmtTokens(m.maxTokens)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="om-pager" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-        <button className="om-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}>
-          {t('action.prevPage')}
-        </button>
-        <span className="om-sub">{t('counts.page', { page: safePage, totalPages })}</span>
-        <button className="om-btn" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}>
-          {t('action.nextPage')}
-        </button>
-      </div>
-
-      <div className="om-foot">
-        <button className="om-btn primary" onClick={() => void apply()} disabled={saving} style={{ minWidth: 120 }}>
-          {saving ? t('action.saving') : t('action.save')}
-        </button>
-        <span className="om-sub">{t('counts.selected', { checked: checked.size, matched: filtered.length, total })}</span>
-        {flash && <span className={'om-status ' + flash.kind} role="status">{flash.text}</span>}
-      </div>
-      <p className="om-note">{t('note.save')}</p>
+      {tab === 'models' ? renderModels() : <SearchConfigCard t={t} />}
     </div>
   )
 }
+

@@ -11,6 +11,8 @@
 /** Simplified Chinese dictionary (key-set source of truth). */
 export const zh = {
   nav: 'OmniRoute 模型管理',
+  'tab.models': '模型管理',
+  'tab.search': '联网搜索',
   'head.title': '模型管理',
 
   'toolbar.route': '路由',
@@ -105,6 +107,8 @@ export type OmniKey = keyof typeof zh
 /** English dictionary, checked complete against the zh key set. */
 export const en: Record<OmniKey, string> = {
   nav: 'OmniRoute model manager',
+  'tab.models': 'Models',
+  'tab.search': 'Web search',
   'head.title': 'Models',
 
   'toolbar.route': 'Route',

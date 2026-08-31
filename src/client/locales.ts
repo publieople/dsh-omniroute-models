@@ -71,6 +71,7 @@ export const zh = {
 
   'note.apiKey':
     '拉取模型列表无需 API key；但实际对话必须给当前路由配置一个非空 key（否则 DSH 经 pi-ai 报 "No API key for provider: <route>"）。请在 DSH「模型」页为该路由填写 API key。',
+  'note.apiKey.title': '对话需为该路由配置非空 API key',
 
   'aria.selectModel': '选择 {id}',
 
@@ -170,6 +171,7 @@ export const en: Record<OmniKey, string> = {
 
   'note.apiKey':
     'Fetching the model list needs no API key, but actually chatting requires a non-empty key for the current route (otherwise DSH’s pi-ai layer reports "No API key for provider: <route>"). Set the API key for this route in the “Models” settings.',
+  'note.apiKey.title': 'A non-empty API key is required to chat',
 
   'aria.selectModel': 'Select {id}',
 

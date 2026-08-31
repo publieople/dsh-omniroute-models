@@ -91,6 +91,7 @@ const STYLE = `
 .om-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 14px;margin:2px 0 12px}
 .om-adv{display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;color:var(--dsw-alias-label-secondary,#6b7280);font:inherit;font-size:13px;cursor:pointer}
 .om-adv:hover{color:var(--dsw-alias-brand-primary,#4f6ef7)}
+.om-note-collapse{margin:2px 0 12px}
 .om-combo{position:relative;display:inline-block;min-width:150px}
 .om-combo-btn{width:100%;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:7px 12px;font-size:14px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;cursor:pointer;text-align:left;transition:background .15s ease,border-color .15s ease}
 .om-combo-btn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.08))}
@@ -398,6 +399,7 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [page, setPage] = useState(1)
   const [tab, setTab] = useState<'models' | 'search'>('models')
+  const [showTip, setShowTip] = useState(false)
 
   let loadCtrl: AbortController | null = null
   async function load(p?: string) {
@@ -580,9 +582,18 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
           <span className="om-count">{t('counts.enabled', { enabled: enabledCount, total })}</span>
         </div>
 
-        <div className="om-tip" role="note">
-          <MorphIcon icon={IconInfo} size={15} strokeWidth={2} />
-          <span>{t('note.apiKey')}</span>
+        <div className="om-note-collapse">
+          <button className="om-adv" onClick={() => setShowTip((s) => !s)} aria-expanded={showTip}>
+            <MorphIcon icon={IconInfo} size={14} strokeWidth={2} />
+            <span>{t('note.apiKey.title')}</span>
+            <MorphIcon icon={showTip ? IconChevronDown : IconChevronRight} size={14} strokeWidth={2} />
+          </button>
+          {showTip && (
+            <div className="om-tip" role="note" style={{ marginBottom: 12 }}>
+              <MorphIcon icon={IconInfo} size={15} strokeWidth={2} />
+              <span>{t('note.apiKey')}</span>
+            </div>
+          )}
         </div>
 
         <div className="om-toolbar">

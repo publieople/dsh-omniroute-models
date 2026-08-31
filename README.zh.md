@@ -75,7 +75,7 @@ npm run build:client   # client → lib/client.js
 ## 安装 / 注入
 
 - 本环境（super-injector）：`dev_inject_plugin /path/to/dsh-omniroute-models`，注入即 host+client 完整生效。
-- 生产 bundle（GitHub，固定版本）：`dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.1`，然后重启目标 profile。
+- 生产 bundle（GitHub，固定版本）：`dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.2`，然后重启目标 profile。
 
 ## 使用
 

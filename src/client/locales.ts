@@ -69,6 +69,9 @@ export const zh = {
   'note.save':
     '保存即整体替换该路由的 models 列表（DSH 恰好能用勾选的这些）；筛选只影响显示，不影响已勾选的保存内容；未保存前不落盘。',
 
+  'note.apiKey':
+    '拉取模型列表无需 API key；但实际对话必须给当前路由配置一个非空 key（否则 DSH 经 pi-ai 报 "No API key for provider: <route>"）。请在 DSH「模型」页为该路由填写 API key。',
+
   'aria.selectModel': '选择 {id}',
 
   'search.title': '联网搜索',
@@ -164,6 +167,9 @@ export const en: Record<OmniKey, string> = {
 
   'note.save':
     'Saving replaces this route’s models list in one go (DSH serves exactly the checked ones). Filters only narrow the view — they never change what a save writes. Nothing is written until you save.',
+
+  'note.apiKey':
+    'Fetching the model list needs no API key, but actually chatting requires a non-empty key for the current route (otherwise DSH’s pi-ai layer reports "No API key for provider: <route>"). Set the API key for this route in the “Models” settings.',
 
   'aria.selectModel': 'Select {id}',
 

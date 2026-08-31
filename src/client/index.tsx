@@ -34,6 +34,7 @@ const IconRefresh: IconNode = [
 ]
 const IconCheck: IconNode = [['path', { d: 'M20 6 9 17l-5-5' }]]
 const IconX: IconNode = [['path', { d: 'M18 6 6 18' }], ['path', { d: 'm6 6 12 12' }]]
+const IconInfo: IconNode = [['circle', { cx: 12, cy: 12, r: 10 }], ['path', { d: 'M12 16v-4' }], ['path', { d: 'M12 8h.01' }]]
 
 const STYLE = `
 .om-root{color:var(--dsw-alias-label-primary);font-size:15px;line-height:1.6;font-family:var(--dsw-font-family,system-ui)}
@@ -74,6 +75,8 @@ const STYLE = `
 .om-status.err{color:var(--dsw-alias-state-error-primary)}
 .om-empty{color:var(--dsw-alias-label-secondary);text-align:center;padding:32px 12px}
 .om-note{color:var(--dsw-alias-label-tertiary);font-size:12px;margin-top:10px}
+.om-tip{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover-accent,rgba(22,102,192,.08));border:1px solid var(--dsw-alias-border-l2);border-radius:10px;margin-bottom:12px}
+.om-tip svg{flex:none;margin-top:2px;color:var(--dsw-alias-brand-primary)}
 .om-card{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);padding:20px;max-width:620px}
 .om-card h3{font-size:16px;font-weight:600;color:var(--dsw-alias-label-primary);margin:0 0 8px}
 .om-card p{color:var(--dsw-alias-label-secondary);margin:0 0 14px}
@@ -575,6 +578,11 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
             {catalog.api ? ' · ' + catalog.api : ''} · {catalog.baseURL}
           </span>
           <span className="om-count">{t('counts.enabled', { enabled: enabledCount, total })}</span>
+        </div>
+
+        <div className="om-tip" role="note">
+          <MorphIcon icon={IconInfo} size={15} strokeWidth={2} />
+          <span>{t('note.apiKey')}</span>
         </div>
 
         <div className="om-toolbar">

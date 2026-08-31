@@ -34,6 +34,22 @@ searchable / filterable / multi-select settings page.
   plugin never writes modalities DSH cannot handle (and thus fails validation).
 - **Web search**: wires DSH's built-in \`web_search\` tool to OmniRoute's aggregate \`POST /v1/search\` (Tavily/Brave/Exa/Ollama/…); enable it from the \`Web search\` card in the settings page. The API key is **optional** — OmniRoute ignores the \`Authorization\` header and the body \`api_key\` (it uses its own per-provider stored key, set in OmniRoute's backend), so for OmniRoute you only need the gateway base URL and the right \`search backend\`. If your endpoint *does* require a key, it resolves in this order: literal \`searchApiKey\` → DSH credentials ref named by \`searchApiKeyEnv\` → process env (same pattern as the official \`dsh-web-search-deepseek\`).
 
+## API key requirement (model provider vs. search)
+
+Pulling the model **list** needs no key; actually **chatting** does.
+
+- **Pulling the catalog / saving the whitelist**: the plugin fetches `GET {baseURL}/models`
+  directly, so you can create the provider with an empty key field and still get the model list.
+- **Actually chatting**: DSH's `llm-pi-ai` adapter (via `@earendil-works/pi-ai`) requires a
+  non-empty key and throws `No API key for provider: <route>` otherwise. So the provider profile
+  must resolve a non-empty `apiKeyEnv` (a DSH credential or env var) — create a gateway token in
+  OmniRoute and fill it into the model provider's API key field / store it as a credential.
+  `pi-ai` also accepts a provider-level `headers.authorization` instead, but that is the
+  non-standard path and not recommended.
+
+For the **web search** provider the key is genuinely optional (OmniRoute ignores `Authorization`
+and uses its own stored upstream keys) — see the `Web search` bullet above.
+
 ## Internals
 
 - **Host** (`src/index.ts`): registers two same-origin JSON routes (`ctx.webServer.register`):
@@ -79,7 +95,7 @@ npm run build:client   # client → lib/client.js
 ## Install / inject
 
 - In this environment (super-injector): `dev_inject_plugin /path/to/dsh-omniroute-models`, host+client applied immediately.
-- Production bundle (GitHub, pinned): `dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.0`, then restart the target profile.
+- Production bundle (GitHub, pinned): `dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.1`, then restart the target profile.
 
 ## Usage
 

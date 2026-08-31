@@ -23,6 +23,19 @@ OmniRoute 模型管理器：一个 DSH host+client 插件，自动拉取 OmniRou
 - 模态只取 DSH 认识的 `text`/`image`（`video`/`audio` 等被裁剪），避免写入 DSH 无法处理的模态导致校验失败。
 - **联网搜索**：把 DSH 内置 `web_search` 接到 OmniRoute 聚合的 `POST /v1/search`（Tavily/Brave/Exa/Ollama 等）；在设置页「联网搜索」卡开启即可。API key 是**可选**的——OmniRoute 会忽略 `Authorization` 请求头和 body 的 `api_key`（它用自己存的各 provider 密钥，在 OmniRoute 后台配置），所以走 OmniRoute 只需网关地址 + 选对 `搜索后端`。若你的端点确实需要 key，则按此顺序解析：字面量 `searchApiKey` → DSH credentials 里由 `searchApiKeyEnv` 命名的 ref → 进程环境变量（与官方 `dsh-web-search-deepseek` 同款）。
 
+## API key 要求（模型 provider vs. 联网搜索）
+
+拉模型**列表**不用 key，真正**对话才需要**。
+
+- **拉取目录 / 保存白名单**：插件直接用 `fetch` 打 `GET {baseURL}/models`，所以模型 provider 的
+  API key 留空也能拉到模型列表。
+- **实际聊天**：DSH 的 `llm-pi-ai` 适配器（经 `@earendil-works/pi-ai`）**强制要非空 key**，否则抛
+  `No API key for provider: <route>`。所以 provider 必须能解析出非空 `apiKeyEnv`（DSH credential 或
+  环境变量）——在 OmniRoute 后台建一个网关 token，填进模型 provider 的 API key 处（或存成 DSH
+  credential）。`pi-ai` 也接受 provider 级 `headers.authorization`，但那是非标准路径，不推荐。
+
+**联网搜索** provider 的 key 才是真正可选（OmniRoute 忽略 `Authorization`，用自己存的 key）。
+
 ## 内部
 
 - **Host**（`src/index.ts`）：注册两条同源 JSON 路由（`ctx.webServer.register`）：
@@ -62,7 +75,7 @@ npm run build:client   # client → lib/client.js
 ## 安装 / 注入
 
 - 本环境（super-injector）：`dev_inject_plugin /path/to/dsh-omniroute-models`，注入即 host+client 完整生效。
-- 生产 bundle（GitHub，固定版本）：`dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.0`，然后重启目标 profile。
+- 生产 bundle（GitHub，固定版本）：`dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.1`，然后重启目标 profile。
 
 ## 使用
 

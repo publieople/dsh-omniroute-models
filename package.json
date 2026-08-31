@@ -1,6 +1,6 @@
 {
   "name": "@dsh-external/dsh-omniroute-models",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "OmniRoute model manager: searchable/filterable multi-select UI to control which OmniRoute models DSH uses, with modality discovery and OmniRoute-backed web search.",
   "type": "module",
   "main": "./lib/index.js",

@@ -32,7 +32,7 @@ searchable / filterable / multi-select settings page.
   modalities/capacities you hand-edited in `settings.yaml`).
 - Modality keeps only `text`/`image` (what DSH understands); `video`/`audio` etc. are clipped so the
   plugin never writes modalities DSH cannot handle (and thus fails validation).
-- **Web search**: wires DSH's built-in \`web_search\` tool to OmniRoute's aggregate \`POST /v1/search\` (Tavily/Brave/Exa/Ollama/…); enable it from the \`Web search\` card in the settings page.
+- **Web search**: wires DSH's built-in \`web_search\` tool to OmniRoute's aggregate \`POST /v1/search\` (Tavily/Brave/Exa/Ollama/…); enable it from the \`Web search\` card in the settings page. The API key is **optional** — OmniRoute ignores the \`Authorization\` header and the body \`api_key\` (it uses its own per-provider stored key, set in OmniRoute's backend), so for OmniRoute you only need the gateway base URL and the right \`search backend\`. If your endpoint *does* require a key, it resolves in this order: literal \`searchApiKey\` → DSH credentials ref named by \`searchApiKeyEnv\` → process env (same pattern as the official \`dsh-web-search-deepseek\`).
 
 ## Internals
 
@@ -47,7 +47,7 @@ searchable / filterable / multi-select settings page.
     `@deepseek-ai/dsh-llm-pi-ai`'s); it only reads/writes an existing namespace.
 - **Client** (`src/client/index.tsx`): subscribes the `settings.section` slot (id `omniroute-models`, order 15),
   renders a React table; all data goes through same-origin `fetch`, no `ctx.api`/LLM remote.
-- **Web search provider** (`src/index.ts`): owns the `omniroute-models` settings namespace for search config and, when enabled, registers a `ctx.web` `WebSearchProvider` (id `omniroute`) so DSH's `web_search` uses OmniRoute; config/test routes `GET|POST /omniroute-models/api/search-config` and `POST /omniroute-models/api/search-test`.
+- **Web search provider** (`src/index.ts`): owns the `omniroute-models` settings namespace for search config and, when enabled, registers a `ctx.web` `WebSearchProvider` (id `omniroute`) so DSH's `web_search` uses OmniRoute; config/test routes `GET|POST /omniroute-models/api/search-config` and `POST /omniroute-models/api/search-test`. The section is registered via `installSettingsSection` (which waits for the `settings` service), so the plugin's activation order never races it; `available()` only requires `enabled` + an http(s) base URL, and the key is resolved lazily per request.
 - **Only chat-capable models are listed**: the gateway `/v1/models` can mix in `embedding`/video/image-generation
   entries; the host's `fetchCatalog` filters by `type` (`embedding|video|image|audio|music|rerank`) so they are
   never mis-listed/mis-saved as text chat models.
@@ -79,7 +79,7 @@ npm run build:client   # client → lib/client.js
 ## Install / inject
 
 - In this environment (super-injector): `dev_inject_plugin /path/to/dsh-omniroute-models`, host+client applied immediately.
-- Production bundle (GitHub, pinned): `dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.1.1`, then restart the target profile.
+- Production bundle (GitHub, pinned): `dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.2.0`, then restart the target profile.
 
 ## Usage
 

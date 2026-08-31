@@ -20,8 +20,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { SettingsProvider, SettingsScope } from '@deepseek-ai/dsh-settings'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebSearchProvider, WebSearchSource, WebRuntime } from '@deepseek-ai/dsh-web'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
@@ -246,24 +247,57 @@ function resolveSearch(value: unknown): SearchSection {
   }
 }
 
-function searchKeyOf(s: SearchSection): string | undefined {
-  if (s.searchApiKey && s.searchApiKey.trim()) return s.searchApiKey
-  if (s.searchApiKeyEnv && s.searchApiKeyEnv.trim()) return process.env[s.searchApiKeyEnv] || undefined
-  return undefined
+/** Per-search runtime options, resolved per operation. */
+interface SearchRuntime {
+  enabled: boolean
+  provider: string
+  baseURL: string
+  maxResults: number
+  resolveKey: () => Promise<string | undefined>
+}
+
+/**
+ * Project a search section into per-operation runtime options. The API key is
+ * not resolved eagerly: `resolveKey` pulls it from the DSH credentials store
+ * (via `credentialRef`) when needed, mirroring the official
+ * `dsh-web-search-deepseek`. A literal `searchApiKey` wins; then the
+ * credentials ref named by `searchApiKeyEnv`; then the process env.
+ */
+function resolveRuntime(ctx: AppContext, s: SearchSection): SearchRuntime {
+  const apiKeyRef = credentialRef(s.searchApiKeyEnv?.trim() || 'OMNIROUTE_API_KEY')
+  const literalApiKey = s.searchApiKey?.trim() ? s.searchApiKey : undefined
+  return {
+    enabled: s.searchEnabled,
+    provider: s.searchProvider,
+    baseURL: s.searchBaseURL,
+    maxResults: s.searchMaxResults,
+    resolveKey: async () => {
+      if (literalApiKey) return literalApiKey
+      const creds = ctx.get('credentials') as { resolve?: (ref: unknown) => Promise<{ value?: string } | undefined> } | undefined
+      if (creds?.resolve) {
+        const got = await creds.resolve(apiKeyRef).catch(() => undefined)
+        if (got?.value) return got.value
+      }
+      const envName = s.searchApiKeyEnv?.trim()
+      return envName ? process.env[envName] || undefined : undefined
+    },
+  }
 }
 
 /** The provider registered into `ctx.web` so DSH's `web_search` uses OmniRoute. */
-function makeSearchProvider(s: SearchSection): WebSearchProvider {
+function makeSearchProvider(getRuntime: () => SearchRuntime): WebSearchProvider {
   return {
     id: 'omniroute',
     available() {
-      return s.searchEnabled && /^https?:\/\//.test(s.searchBaseURL) && !!searchKeyOf(s)
+      const r = getRuntime()
+      return r.enabled && /^https?:\/\//.test(r.baseURL)
     },
     async search(req, signal) {
-      const key = searchKeyOf(s)
-      const endpoint = joinUrl(s.searchBaseURL, 'search')
-      const body: Record<string, unknown> = { query: req.query, max_results: req.maxResults ?? s.searchMaxResults }
-      if (s.searchProvider) body.provider = s.searchProvider
+      const r = getRuntime()
+      const key = await r.resolveKey()
+      const endpoint = joinUrl(r.baseURL, 'search')
+      const body: Record<string, unknown> = { query: req.query, max_results: req.maxResults ?? r.maxResults }
+      if (r.provider) body.provider = r.provider
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (key) headers['Authorization'] = `Bearer ${key}`
       const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal })
@@ -294,9 +328,9 @@ function makeSearchProvider(s: SearchSection): WebSearchProvider {
 }
 
 /** Best-effort list of OmniRoute's configured search providers (GET /v1/search). */
-async function omniSearchProviders(s: SearchSection): Promise<Array<{ id: string; name?: string }>> {
-  const key = searchKeyOf(s)
-  const endpoint = joinUrl(s.searchBaseURL, 'search')
+async function omniSearchProviders(ctx: AppContext, runtime: SearchRuntime): Promise<Array<{ id: string; name?: string }>> {
+  const key = await runtime.resolveKey()
+  const endpoint = joinUrl(runtime.baseURL, 'search')
   const headers: Record<string, string> = {}
   if (key) headers['Authorization'] = `Bearer ${key}`
   try {
@@ -502,41 +536,26 @@ export function apply(ctx: AppContext, config: Config): void {
     'omniroute-models: apply route',
   )
 
-  // Web search: own the `omniroute-models` settings section and sync a
-  // `ctx.web` search provider so DSH's `web_search` uses OmniRoute.
-  let searchSection: SearchSection = resolveSearch(undefined)
-  let searchDisposer: (() => void) | null = null
-  let searchRegistered = false
-  ctx.effect(() => {
-    const settings = resolveSettings()
-    let scope: SettingsScope<SearchSection> | undefined
-    if (settings) {
-      try {
-        scope = settings.register(SEARCH_NS, searchSectionSchema, { applies: 'live' })
-      } catch {
-        scope = undefined // already registered (re-entrant composition) — read via settings.get
-      }
-    }
-    const sync = (value?: unknown): void => {
-      searchSection = resolveSearch(value)
-      const webRuntime = ctx.get('web') as WebRuntime | undefined
-      if (!webRuntime) return
-      if (searchSection.searchEnabled && !searchRegistered) {
-        searchDisposer = webRuntime.registerSearchProvider(makeSearchProvider(searchSection))
-        searchRegistered = true
-      } else if (!searchSection.searchEnabled && searchRegistered) {
-        searchDisposer?.()
-        searchDisposer = null
-        searchRegistered = false
-      }
-    }
-    if (scope) {
-      sync(scope.get())
-      const unsub = scope.watch(() => sync(scope.get()))
-      return () => { unsub() }
-    }
-    return () => {}
-  }, 'omniroute-models: search provider')
+  // Web search: own the `omniroute-models` settings section and register a
+  // `ctx.web` search provider so DSH's `web_search` uses OmniRoute. Use the
+  // official `installSettingsSection` (waits for the settings service via
+  // ctx.inject) rather than a one-shot `ctx.get('settings')` check: this
+  // plugin injects ['webServer','web'] (not 'settings'), so it activates before
+  // settings is ready, and a one-shot check would never register the section.
+  let currentSection: () => SearchSection = () => resolveSearch(undefined)
+  // The plugin's AppContext type is narrower than the DSH runtime Context
+  // (its tsconfig does not load the @deepseek-ai Context augmentations), but
+  // the runtime ctx does expose settings/credentials/web — so cast at these
+  // integration points rather than broadening the plugin Context type.
+  installSettingsSection(ctx as any, SEARCH_NS, searchSectionSchema, resolveSearch(undefined), {
+    setSource: (src) => {
+      currentSection = () => src()
+    },
+    onChange: () => {},
+  })
+  const getRuntime = () => resolveRuntime(ctx, currentSection())
+  const web = ctx.get('web') as WebRuntime | undefined
+  web?.registerSearchProvider(makeSearchProvider(getRuntime))
 
   // Search config: GET (read) / POST (write) one same-origin route.
   ctx.effect(() =>
@@ -560,9 +579,8 @@ export function apply(ctx: AppContext, config: Config): void {
               sendJson(res, 200, { ok: true, config })
               return
             }
-            const section = settings.get(SEARCH_NS) as unknown
-            const config = resolveSearch(section)
-            const providers = await omniSearchProviders(config)
+            const config = currentSection()
+            const providers = await omniSearchProviders(ctx, getRuntime())
             const desc = settings.describe().find((d) => d.ns === SEARCH_NS)
             sendJson(res, 200, { config, providers, revision: desc?.revision })
           } catch (e) {
@@ -587,17 +605,20 @@ export function apply(ctx: AppContext, config: Config): void {
           try {
             const body = JSON.parse((await readBody(req)) || '{}') as { config?: unknown }
             const config = resolveSearch(body.config)
-            const key = searchKeyOf(config)
-            if (!key || !/^https?:\/\//.test(config.searchBaseURL)) {
-              sendJson(res, 200, { ok: false, error: '需要网关地址与密钥', code: 'search.minKey' })
+            const runtime = resolveRuntime(ctx, config)
+            const key = await runtime.resolveKey()
+            if (!/^https?:\/\//.test(runtime.baseURL)) {
+              sendJson(res, 200, { ok: false, error: '需要网关地址', code: 'search.minKey' })
               return
             }
-            const endpoint = joinUrl(config.searchBaseURL, 'search')
+            const endpoint = joinUrl(runtime.baseURL, 'search')
             const requestBody: Record<string, unknown> = { query: 'deepseek harness', max_results: 1 }
-            if (config.searchProvider) requestBody.provider = config.searchProvider
+            if (runtime.provider) requestBody.provider = runtime.provider
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (key) headers['Authorization'] = `Bearer ${key}`
             const probe = await fetch(endpoint, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+              headers,
               body: JSON.stringify(requestBody),
               signal: AbortSignal.timeout(20000),
             })

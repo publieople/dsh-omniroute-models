@@ -25,7 +25,7 @@ for p in cordis schemastery; do
 done
 
 # peers supplied by the global DSH install (host/client services)
-for p in dsh-settings dsh-host-webserver dsh-client-runtime dsh-client-ui-settings dsh-client-locale dsh-web; do
+for p in dsh-settings dsh-host-webserver dsh-client-runtime dsh-client-ui-settings dsh-client-locale dsh-web dsh-credentials; do
   if [ -e "$DSH_GLOBAL/$p" ]; then link "$DSH_GLOBAL/$p" "$DEST/$p"; else echo "MISS global peer: $p"; fi
 done
 

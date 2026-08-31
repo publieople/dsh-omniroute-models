@@ -23,6 +23,8 @@ export const inject = ['slots', 'locale']
 
 const API = '/omniroute-models/api'
 const PAGE_SIZE = 50
+// "First-run hint" flag — persisted so the API-key notice auto-expands only once.
+const API_KEY_TIP_SEEN = 'omniroute-models.apiKeyTipSeen'
 
 // Morphicons icon data (lucide-style `[tag, attrs]` lists). Constructed once at
 // module scope — never recreated per render (morphicons: hoist icon data).
@@ -399,7 +401,17 @@ function OmnirouteModelsSection(props: { close?: () => void; t: OmniTranslate })
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [page, setPage] = useState(1)
   const [tab, setTab] = useState<'models' | 'search'>('models')
-  const [showTip, setShowTip] = useState(false)
+  // First visit (no stored flag): expand the notice once, then mark it seen so later
+  // loads start collapsed. An expanded-once flag matches "show it only the first time".
+  const [showTip, setShowTip] = useState<boolean>(() => {
+    try {
+      const seen = window.localStorage.getItem(API_KEY_TIP_SEEN) === '1'
+      if (!seen) window.localStorage.setItem(API_KEY_TIP_SEEN, '1')
+      return !seen
+    } catch {
+      return false
+    }
+  })
 
   let loadCtrl: AbortController | null = null
   async function load(p?: string) {

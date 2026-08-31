@@ -70,7 +70,8 @@ searchable / filterable / multi-select settings page.
 ## Build
 
 ```bash
-# needs node + typescript + tsdown (or use dev_build_plugin):
+# Dev prerequisites: install build tooling, then point @deepseek-ai runtime types at the DSH harness
+pnpm install && pnpm link:dev
 npm run build          # host → lib/index.js
 npm run build:client   # client → lib/client.js
 ```
@@ -78,7 +79,7 @@ npm run build:client   # client → lib/client.js
 ## Install / inject
 
 - In this environment (super-injector): `dev_inject_plugin /path/to/dsh-omniroute-models`, host+client applied immediately.
-- Production bundle (GitHub, pinned): `dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.1.0`, then restart the target profile.
+- Production bundle (GitHub, pinned): `dsh plugin --profile web add github:publieople/dsh-omniroute-models#v0.1.1`, then restart the target profile.
 
 ## Usage
 

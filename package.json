@@ -1,8 +1,7 @@
 {
   "name": "@dsh-external/dsh-omniroute-models",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "OmniRoute model manager: searchable/filterable multi-select UI to control which OmniRoute models DSH uses, with modality discovery.",
-  "private": true,
   "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/types/index.d.ts",
@@ -14,6 +13,9 @@
     "README.i18n.yaml"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.0-rc <5",
     "@deepseek-ai/schemastery": ">=3.18.0 <4",
@@ -36,7 +38,9 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:client": "tsdown"
+    "build:client": "tsdown",
+    "link:dev": "bash scripts/link-dev.sh",
+    "prepack": "npm run build && npm run build:client"
   },
   "exports": {
     ".": {
